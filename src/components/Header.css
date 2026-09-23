@@ -2,21 +2,23 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 24px;
-  background-color: #1e1e2f;
-  color: white;
+  padding: 20px 20px;
+  background: #171d27;
+  border: 1px solid var(--border);
+  border-radius: 12px;
 }
 
 .header-logo {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-weight: 600;
-  font-size: 1.1rem;
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: var(--text-h);
 }
 
 .header-logo img {
-  height: 32px;
+  height: 40px;
   width: 100px;
   object-fit: contain;
   display: block;
@@ -25,19 +27,19 @@
 
 .header-nav {
   display: flex;
+  align-items: center;
   gap: 28px;
 }
 
 .header-nav a {
-  color: white;
+  color: var(--muted);
   text-decoration: none;
-  font-size: 0.95rem;
-  opacity: 0.85;
-  transition: opacity 0.2s;
+  font-size: 0.9rem;
+  transition: color 0.2s ease;
 }
 
 .header-nav a:hover {
-  opacity: 1;
+  color: var(--text-h);
 }
 
 .header-user {
@@ -48,22 +50,24 @@
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background-color: #4a90e2;
+  background: var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
-  font-weight: bold;
+  font-weight: 700;
+  color: #fff;
   cursor: pointer;
 }
 
 .user-tooltip {
   position: absolute;
-  top: 44px;
+  top: 46px;
   right: 0;
-  background-color: #2a2a3d;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 0.85rem;
+  background: #1b2430;
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: var(--text-h);
   white-space: nowrap;
 }

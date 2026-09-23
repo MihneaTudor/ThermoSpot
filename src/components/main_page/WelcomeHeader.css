@@ -1,0 +1,21 @@
+.welcome-header {
+  padding: 40px 18px 30px;
+  text-align: left;
+  align-self: flex-start;
+  width: 100%;
+}
+
+.welcome-header__title {
+  margin: 0;
+  font-family: var(--heading);
+  font-weight: 600;
+  font-size: clamp(3rem, 4vw, 4rem);
+  letter-spacing: -0.01em;
+  color: var(--text-h);
+  text-align: left;
+}
+
+.welcome-header__name {
+  color: var(--accent);
+  font-weight: 700;
+}
