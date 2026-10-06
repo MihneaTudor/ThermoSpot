@@ -105,6 +105,30 @@ code {
   gap: 16px;
   padding: 32px;
   background: #121821;
+  flex: 1 1 auto; 
+  min-height: 0;
+}
+
+.dashboard-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 30px;
+  justify-content: stretch; /* let columns fill the available space rather than centering them */
+  align-items: stretch; /* ensure both grid cells stretch to the same height */
+  min-height: 0;
+  height: 100%;
+}
+
+/* ensure direct children of the grid can shrink properly so internal flex children (like the prints list) can use 100% heights */
+.dashboard-columns > * {
+  min-height: 0;
+}
+
+.dashboard-column-left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
 }
 
 @media (max-width: 1024px) {
@@ -120,4 +144,42 @@ code {
   .dashboard-page {
     padding: 20px 18px 24px;
   }
+}
+
+/* Mobile / narrow screens */
+@media (max-width: 768px) {
+  :root { font-size: 15px; }
+
+  #root {
+    width: 100%;
+    margin: 8px 0;
+    border-radius: 0;
+  }
+
+  .dashboard-page {
+    padding: 12px 12px 16px;
+    gap: 12px;
+  }
+
+  /* Stack columns into a single column so content fits mobile screens */
+  .dashboard-columns {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    justify-content: stretch;
+  }
+
+  /* make sure children stretch and can use 100% height where needed */
+  .dashboard-columns > * { min-height: 0; }
+
+  .dashboard-column-left { gap: 12px; }
+
+  /* Make header more compact on mobile */
+  .header { padding: 12px; }
+  .header-logo { font-size: 1.125rem; gap: 6px; }
+  .header-logo img { height: 32px; width: auto; }
+  .header-nav { display: none; }
+
+  /* Welcome header fits on small screens */
+  .welcome-header { padding: 18px 8px 12px; }
+  .welcome-header__title { font-size: clamp(1.75rem, 7vw, 2.25rem); }
 }

@@ -31,14 +31,21 @@
   gap: 28px;
 }
 
-.header-nav a {
+.header-nav a,
+.header-nav__device {
   color: var(--muted);
   text-decoration: none;
   font-size: 0.9rem;
   transition: color 0.2s ease;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
 }
 
-.header-nav a:hover {
+.header-nav a:hover,
+.header-nav__device:hover {
   color: var(--text-h);
 }
 
@@ -70,4 +77,24 @@
   font-size: 0.8rem;
   color: var(--text-h);
   white-space: nowrap;
+}
+
+/* responsive header tweaks for narrow screens */
+@media (max-width: 768px) {
+  .header { padding: 12px 10px; }
+  .header-logo { font-size: 1.15rem; }
+  .header-logo img { height: 32px; width: auto; }
+  /* Keep the nav visible on small screens. Make it compact and allow horizontal scrolling if needed. */
+  .header-nav {
+    display: flex;
+    gap: 10px;
+    font-size: 0.85rem;
+    align-items: center;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px; /* give tiny breathing room for scroll */
+  }
+  .header-nav::-webkit-scrollbar { display: none; }
+  .user-avatar { width: 34px; height: 34px; }
+  .user-tooltip { font-size: 0.75rem; }
 }

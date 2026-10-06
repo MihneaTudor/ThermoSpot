@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import dashboardContent from '../data/dashboardContent.json'
 import './Header.css'
 
-function Header() {
+function Header({ onOpenDeviceDetails, onGoDashboard, onOpenLogs }) {
     const [showTooltip, setShowTooltip] = useState(false)
+    const { header, welcome } = dashboardContent
 
     return (
         <header className='header'>
@@ -11,16 +13,22 @@ function Header() {
             </div>
 
             <nav className='header-nav'>
-                <a href='#dashboard'>Dashboard</a>
-                <a href='#device'>Device</a>
-                <a href='#logs'>Logs</a>
+                <button type='button' className='header-nav__device' onClick={onGoDashboard}>
+                    {header.nav[0].label}
+                </button>
+                <button type='button' className='header-nav__device' onClick={onOpenDeviceDetails}>
+                    {header.nav[1].label}
+                </button>
+                <button type='button' className='header-nav__device' onClick={() => onOpenLogs && onOpenLogs()}>
+                    {header.nav[2].label}
+                </button>
             </nav>
 
             <div className='header-user'
                 onMouseEnter={() => setShowTooltip(true)}
                 onMouseLeave={() => setShowTooltip(false)}
             ><div className='user-avatar'>U</div>
-            {showTooltip && ( <div className='user-tooltip'>Logged in as user</div>)}
+            {showTooltip && ( <div className='user-tooltip'>{welcome.loggedInAs}</div>)}
             </div>
         </header>
     )

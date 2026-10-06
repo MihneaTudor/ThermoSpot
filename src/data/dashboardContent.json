@@ -1,0 +1,63 @@
+{
+  "userName": "User",
+  "welcome": {
+    "title": "Welcome",
+    "loggedInAs": "Logged in as user"
+  },
+  "labels": {
+    "currentDevice": "Current device:",
+    "deviceManagement": "Device management",
+    "deviceList": "Device list",
+    "deviceInformation": "Device information",
+    "noDevices": "No devices",
+    "noDevicesConnected": "No devices connected yet",
+    "addDevice": "+ Add device",
+    "addSmall": "+ Add",
+    "edit": "Edit",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "saveChanges": "Save changes",
+    "status": {
+      "online": "Online",
+      "offline": "Offline",
+      "idle": "Idle",
+      "error": "Error"
+    }
+  },
+  "header": {
+    "nav": [
+      { "label": "Dashboard", "href": "#dashboard" },
+      { "label": "Device", "href": "#device" },
+      { "label": "Logs", "href": "#logs" }
+    ]
+  },
+  "devices": [
+    {
+      "id": "device-1",
+      "name": "ThermSpot Prototype",
+      "status": "online",
+      "detail": "currently printing",
+      "model": "ThermSpot X1",
+      "boardSerialNumber": "TS-2048",
+      "location": "Workshop Bench 3",
+      "uptime": "6h 42m",
+      "boardTemperature": "73°C",
+      "lastMaintenance": "18 Jul 2026",
+      "notes": "Stable thermal regulation with a calibrated nozzle and no active alerts."
+    }
+  ],
+  "project": {
+    "name": "Print attempt to steal copper the romanian way",
+    "progress": 97,
+    "eta": "in 35 mins",
+    "live": true
+  },
+  "printsLog": [
+    { "id": 1, "projectName": "Copper is my passion", "date": "22-07-2026", "tag": "completed" },
+    { "id": 2, "projectName": "I re-shaped copper", "date": "19-07-2026", "tag": "issue" },
+    { "id": 3, "projectName": "I melted copper", "date": "18-07-2026", "tag": "completed" },
+    { "id": 4, "projectName": "I stole copper", "date": "17-07-2026", "tag": "error" },
+    { "id": 5, "projectName": "I found copper", "date": "17-07-2026", "tag": "issue" },
+    { "id": 6, "projectName": "I love copper", "date": "15-07-2026", "tag": "completed" }
+  ]
+}

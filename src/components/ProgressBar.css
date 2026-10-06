@@ -26,3 +26,8 @@
   min-width: 34px;
   text-align: right;
 }
+
+@media (max-width: 768px) {
+  .progress-bar__value { min-width: 28px; font-size: 0.72rem; }
+  .progress-bar__track { height: 5px; }
+}
