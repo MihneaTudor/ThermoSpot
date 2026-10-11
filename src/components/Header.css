@@ -1,0 +1,100 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 20px;
+  background: #171d27;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.header-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: var(--text-h);
+}
+
+.header-logo img {
+  height: 40px;
+  width: 100px;
+  object-fit: contain;
+  display: block;
+  filter: brightness(0) invert(1);
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.header-nav a,
+.header-nav__device {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: color 0.2s ease;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.header-nav a:hover,
+.header-nav__device:hover {
+  color: var(--text-h);
+}
+
+.header-user {
+  position: relative;
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+}
+
+.user-tooltip {
+  position: absolute;
+  top: 46px;
+  right: 0;
+  background: #1b2430;
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: var(--text-h);
+  white-space: nowrap;
+}
+
+/* responsive header tweaks for narrow screens */
+@media (max-width: 768px) {
+  .header { padding: 12px 10px; }
+  .header-logo { font-size: 1.15rem; }
+  .header-logo img { height: 32px; width: auto; }
+  /* Keep the nav visible on small screens. Make it compact and allow horizontal scrolling if needed. */
+  .header-nav {
+    display: flex;
+    gap: 10px;
+    font-size: 0.85rem;
+    align-items: center;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px; /* give tiny breathing room for scroll */
+  }
+  .header-nav::-webkit-scrollbar { display: none; }
+  .user-avatar { width: 34px; height: 34px; }
+  .user-tooltip { font-size: 0.75rem; }
+}
