@@ -7,7 +7,14 @@ VALUES (
   'printer-1'
 );
 
-INSERT INTO process_runs (user_id, machine_id, name, series_name, series_no, started_at, ended_at, status)
+INSERT INTO run_series (user_id, name, description)
+VALUES (
+  (SELECT id FROM users WHERE email = 'company@example.com'),
+  'Test Series 1',
+  'A test series for demonstration purposes'
+);
+
+INSERT INTO process_runs (user_id, machine_id, name, series_id, started_at, ended_at, status)
 VALUES (
   (SELECT id FROM users WHERE email = 'company@example.com'),
   (
