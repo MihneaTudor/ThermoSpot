@@ -4,9 +4,10 @@ from datetime import datetime, timedelta
 
 
 RUN_ID_QUERY = (
-    "(SELECT id FROM process_runs WHERE name = 'Test Run 1' "
-    "AND series_name = 'Tests 1' AND series_no = 1 "
-    "AND user_id = (SELECT id FROM users WHERE email = 'company@example.com'))"
+    "(SELECT process_runs.id FROM process_runs "
+    "JOIN users ON users.id = process_runs.user_id "
+    "WHERE process_runs.name = 'Test Run 1' "
+    "AND users.email = 'company@example.com')"
 )
 READING_COLUMNS = [
     f"m_{row}{column}" for row in range(8) for column in range(8)

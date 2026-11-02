@@ -1,3 +1,6 @@
+INSERT INTO users (email, display_name)
+VALUES ('company@example.com', 'Big Company');
+
 INSERT INTO machines (user_id, name)
 VALUES (
   (SELECT id FROM users WHERE email = 'company@example.com'),
@@ -20,5 +23,8 @@ VALUES (
     JOIN users AS u ON u.id = m.user_id
     WHERE u.email = 'company@example.com' AND m.name = 'printer-1'
   ),
-  'Test Run 1', 'Tests 1', 1, NOW(), NULL, 'running'
+  'Test Run 1',
+  (SELECT id FROM run_series WHERE user_id = (SELECT id FROM users WHERE email = 'company@example.com')
+   AND name = 'Test Series 1'),
+  NOW(), NULL, 'running'
 );
