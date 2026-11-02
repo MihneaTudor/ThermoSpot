@@ -1,6 +1,3 @@
-INSERT INTO users (email, display_name)
-VALUES ('company@example.com', 'Big Company');
-
 INSERT INTO machines (user_id, name)
 VALUES (
   (SELECT id FROM users WHERE email = 'company@example.com'),

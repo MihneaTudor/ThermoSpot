@@ -8,3 +8,6 @@ CREATE TABLE users (
   PRIMARY KEY (id),
   UNIQUE KEY uq_users_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO users (email, display_name)
+VALUES ('company@example.com', 'Big Company');
