@@ -78,6 +78,8 @@ export function DeviceDetailsPage({ devices, selectedDevice, onSelectDevice, onA
     setIsEditing(false);
   };
 
+  const notesLength = formData.notes.length;
+
   const handleConfirmDelete = () => {
     setIsConfirmingDelete(false);
     onDeleteDevice(id);
@@ -123,6 +125,7 @@ export function DeviceDetailsPage({ devices, selectedDevice, onSelectDevice, onA
               {isEditing ? (
                 <input
                   className="device-page__title-input"
+                  maxLength={25}
                   value={formData.name}
                   onChange={(event) => handleFieldChange("name", event.target.value)}
                 />
@@ -185,7 +188,7 @@ export function DeviceDetailsPage({ devices, selectedDevice, onSelectDevice, onA
             <div className="device-modal__item">
               <span>Model</span>
               {isEditing ? (
-                <input value={formData.model} onChange={(event) => handleFieldChange("model", event.target.value)} />
+                <input maxLength={25} value={formData.model} onChange={(event) => handleFieldChange("model", event.target.value)} />
               ) : (
                 <strong>{model}</strong>
               )}
@@ -193,7 +196,7 @@ export function DeviceDetailsPage({ devices, selectedDevice, onSelectDevice, onA
             <div className="device-modal__item">
               <span>Board serial number</span>
               {isEditing ? (
-                <input maxLength={128} value={formData.boardSerialNumber} onChange={(event) => handleFieldChange("boardSerialNumber", event.target.value)} />
+                <input maxLength={25} value={formData.boardSerialNumber} onChange={(event) => handleFieldChange("boardSerialNumber", event.target.value)} />
               ) : (
                 <strong>{boardSerialNumber}</strong>
               )}
@@ -201,7 +204,7 @@ export function DeviceDetailsPage({ devices, selectedDevice, onSelectDevice, onA
             <div className="device-modal__item">
               <span>Location</span>
               {isEditing ? (
-                <input value={formData.location} onChange={(event) => handleFieldChange("location", event.target.value)} />
+                <input maxLength={25} value={formData.location} onChange={(event) => handleFieldChange("location", event.target.value)} />
               ) : (
                 <strong>{location}</strong>
               )}
@@ -209,7 +212,7 @@ export function DeviceDetailsPage({ devices, selectedDevice, onSelectDevice, onA
             <div className="device-modal__item">
               <span>Uptime</span>
               {isEditing ? (
-                <input value={formData.uptime} onChange={(event) => handleFieldChange("uptime", event.target.value)} />
+                <input maxLength={25} value={formData.uptime} onChange={(event) => handleFieldChange("uptime", event.target.value)} />
               ) : (
                 <strong>{uptime}</strong>
               )}
@@ -217,7 +220,7 @@ export function DeviceDetailsPage({ devices, selectedDevice, onSelectDevice, onA
             <div className="device-modal__item">
               <span>Board temperature</span>
               {isEditing ? (
-                <input value={formData.boardTemperature} onChange={(event) => handleFieldChange("boardTemperature", event.target.value)} />
+                <input maxLength={25} value={formData.boardTemperature} onChange={(event) => handleFieldChange("boardTemperature", event.target.value)} />
               ) : (
                 <strong>{boardTemperature}</strong>
               )}
@@ -225,7 +228,7 @@ export function DeviceDetailsPage({ devices, selectedDevice, onSelectDevice, onA
             <div className="device-modal__item">
               <span>Last maintenance</span>
               {isEditing ? (
-                <input value={formData.lastMaintenance} onChange={(event) => handleFieldChange("lastMaintenance", event.target.value)} />
+                <input maxLength={25} value={formData.lastMaintenance} onChange={(event) => handleFieldChange("lastMaintenance", event.target.value)} />
               ) : (
                 <strong>{lastMaintenance}</strong>
               )}
@@ -235,9 +238,14 @@ export function DeviceDetailsPage({ devices, selectedDevice, onSelectDevice, onA
           <div className="device-modal__notes">
             <span className="device-modal__notes-label">Notes</span>
             {isEditing ? (
-              <textarea value={formData.notes} onChange={(event) => handleFieldChange("notes", event.target.value)} rows={4} />
+              <>
+                <textarea maxLength={128} value={formData.notes} onChange={(event) => handleFieldChange("notes", event.target.value)} rows={4} />
+                <div className="device-modal__notes-counter" aria-live="polite">
+                  {notesLength}/128
+                </div>
+              </>
             ) : (
-              <p>{notes}</p>
+              <p className="device-modal__notes-text">{notes}</p>
             )}
           </div>
         </main>

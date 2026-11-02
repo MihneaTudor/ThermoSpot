@@ -47,17 +47,23 @@
     }
   ],
   "project": {
-    "name": "Print attempt to steal copper the romanian way",
+    "name": "Print attempt",
     "progress": 97,
     "eta": "in 35 mins",
     "live": true
   },
   "printsLog": [
-    { "id": 1, "projectName": "Copper is my passion", "date": "22-07-2026", "tag": "completed" },
-    { "id": 2, "projectName": "I re-shaped copper", "date": "19-07-2026", "tag": "issue" },
-    { "id": 3, "projectName": "I melted copper", "date": "18-07-2026", "tag": "completed" },
-    { "id": 4, "projectName": "I stole copper", "date": "17-07-2026", "tag": "error" },
-    { "id": 5, "projectName": "I found copper", "date": "17-07-2026", "tag": "issue" },
-    { "id": 6, "projectName": "I love copper", "date": "15-07-2026", "tag": "completed" }
+    { "id": 1, "projectName": "Copper is my passion", "date": "22-07-2026", "deviceId": "device-1", "device": "ThermSpot Prototype", "tag": "completed" },
+    { "id": 2, "projectName": "I re-shaped copper", "date": "19-07-2026", "deviceId": "device-1", "device": "ThermSpot Prototype", "tag": "issue" },
+    { "id": 3, "projectName": "I melted copper", "date": "18-07-2026", "deviceId": "device-1", "device": "ThermSpot Prototype", "tag": "completed" },
+    { "id": 4, "projectName": "I stole copper", "date": "17-07-2026", "deviceId": "device-1", "device": "ThermSpot Prototype", "tag": "error" },
+    { "id": 5, "projectName": "I found copper", "date": "17-07-2026", "deviceId": "device-1", "device": "ThermSpot Prototype", "tag": "issue" },
+    { "id": 6, "projectName": "I love copper", "date": "15-07-2026", "deviceId": "device-1", "device": "ThermSpot Prototype", "tag": "completed" },
+    { "id": 7, "projectName": "Copper flow stabilized", "date": "12-07-2026", "deviceId": "device-1", "device": "ThermSpot Prototype", "tag": "completed" },
+    { "id": 8, "projectName": "Nozzle temp drift", "date": "10-07-2026", "deviceId": "device-1", "device": "ThermSpot Prototype", "tag": "issue" },
+    { "id": 9, "projectName": "Thermal calibration pass", "date": "08-07-2026", "deviceId": "device-1", "device": "ThermSpot Prototype", "tag": "completed" },
+    { "id": 10, "projectName": "Power dip detected", "date": "06-07-2026", "deviceId": "device-1", "device": "ThermSpot Prototype", "tag": "error" },
+    { "id": 11, "projectName": "Layer alignment check", "date": "04-07-2026", "deviceId": "device-1", "device": "ThermSpot Prototype", "tag": "issue" },
+    { "id": 12, "projectName": "Surface finish review", "date": "01-07-2026", "deviceId": "device-1", "device": "ThermSpot Prototype", "tag": "completed" }
   ]
 }
