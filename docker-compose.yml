@@ -1,0 +1,17 @@
+services:
+    database:
+        build: 
+          context: ./database
+        environment:
+            MYSQL_DATABASE: ${MYSQL_DATABASE}
+            MYSQL_USER: ${MYSQL_USER}
+            MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+        ports:
+            - "${MYSQL_PORT}:3306"
+        volumes:
+            - mysql_data:/var/lib/mysql
+        restart: unless-stopped
+
+volumes:
+    mysql_data:
