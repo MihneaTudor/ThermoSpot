@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from db_connection import get_connection
 
 app = FastAPI()
 
@@ -17,8 +18,9 @@ app.add_middleware(
 
 @app.get("/")
 def home():
-    return {"message": "ThermoSpot backend is running!"}
+    get_connection()
+    return {"message": "ThermoSpot backend is running!k"}
 
-@app.get("/")
-def home():
-    return {"message": "ThermoSpot backend is running!"}
+@app.get("/auth")
+def auth_check():
+    return {"message": "ThermoSpot backend is running!k"}
