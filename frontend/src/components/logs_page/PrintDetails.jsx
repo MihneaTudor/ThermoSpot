@@ -122,6 +122,8 @@ function PrintDetailsContent({ entry }) {
     setIsEditingNotes(false);
   };
 
+  const draftNotesLength = draftNotes.length;
+
   const handleCancelNotes = () => {
     setDraftNotes(notes);
     setIsEditingNotes(false);
@@ -154,6 +156,10 @@ function PrintDetailsContent({ entry }) {
             <h2 className="print-details__name">{entry.projectName}</h2>
             <div className="print-details__meta">
               <span className="print-details__chip">{entry.date}</span>
+              <span className="print-details__meta-divider" aria-hidden="true" />
+              <span className="print-details__chip print-details__device-chip">
+                {entry.device || "Unknown device"}
+              </span>
               <span className="print-details__meta-divider" aria-hidden="true" />
               <span
                 className="print-details__chip print-details__tag"
@@ -207,13 +213,19 @@ function PrintDetailsContent({ entry }) {
           </div>
 
           {isEditingNotes ? (
-            <textarea
-              value={draftNotes}
-              onChange={(event) => setDraftNotes(event.target.value)}
-              aria-label="Print notes"
-            />
+            <>
+              <textarea
+                maxLength={128}
+                value={draftNotes}
+                onChange={(event) => setDraftNotes(event.target.value)}
+                aria-label="Print notes"
+              />
+              <div className="print-details__notes-counter" aria-live="polite">
+                {draftNotesLength}/128
+              </div>
+            </>
           ) : (
-            <p>{notes}</p>
+            <p className="print-details__notes-text">{notes}</p>
           )}
         </div>
 

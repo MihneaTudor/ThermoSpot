@@ -4,7 +4,16 @@
   gap: 8px;
 }
 
+.progress-bar--vertical {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+}
+
 .progress-bar__track {
+  width: 100%;
   flex: 1;
   height: 6px;
   border-radius: 999px;
@@ -27,7 +36,26 @@
   text-align: right;
 }
 
+.progress-bar__value--above {
+  font-weight: 700;
+  color: var(--text-h);
+  font-size: 0.95rem;
+  text-align: left;
+}
+
 @media (max-width: 768px) {
   .progress-bar__value { min-width: 28px; font-size: 0.72rem; }
   .progress-bar__track { height: 5px; }
+  .progress-bar__value--above { font-size: 0.9rem; }
+}
+
+.progress-bar--vertical .progress-bar__track {
+  flex: none;
+  height: 6px;
+}
+
+@media (max-width: 768px) {
+  .progress-bar--vertical .progress-bar__track {
+    height: 5px;
+  }
 }

@@ -122,6 +122,12 @@
   border-color: rgba(255, 255, 255, 0.08);
 }
 
+.print-details__device-chip {
+  color: var(--text-h);
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
 .print-details__meta-divider {
   width: 4px;
   height: 4px;
@@ -226,6 +232,16 @@
   padding: 12px 14px;
   font: inherit;
   line-height: 1.6;
+}
+
+.print-details__notes-counter {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
 }
 
 .print-details__notes p {

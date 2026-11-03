@@ -594,18 +594,24 @@
   font-size: 1rem;
   font-weight: 600;
   color: var(--text-h);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  max-width: 100%;
 }
 
 .device-modal__item input,
 .device-modal__item textarea,
 .device-modal__notes textarea {
   width: 100%;
+  box-sizing: border-box;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.02);
   color: var(--text-h);
   font: inherit;
   padding: 8px 10px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .device-modal__item input {
@@ -631,11 +637,25 @@
 .device-modal__notes p {
   color: var(--text);
   line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .device-modal__notes textarea {
   min-height: 110px;
   resize: vertical;
+  max-width: 100%;
+}
+
+.device-modal__notes-counter {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
 }
 
 .device-modal__close {
