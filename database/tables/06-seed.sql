@@ -1,0 +1,30 @@
+INSERT INTO users (email, display_name)
+VALUES ('company@example.com', 'Big Company');
+
+INSERT INTO machines (user_id, name)
+VALUES (
+  (SELECT id FROM users WHERE email = 'company@example.com'),
+  'printer-1'
+);
+
+INSERT INTO run_series (user_id, name, description)
+VALUES (
+  (SELECT id FROM users WHERE email = 'company@example.com'),
+  'Test Series 1',
+  'A test series for demonstration purposes'
+);
+
+INSERT INTO process_runs (user_id, machine_id, name, series_id, started_at, ended_at, status)
+VALUES (
+  (SELECT id FROM users WHERE email = 'company@example.com'),
+  (
+    SELECT m.id
+    FROM machines AS m
+    JOIN users AS u ON u.id = m.user_id
+    WHERE u.email = 'company@example.com' AND m.name = 'printer-1'
+  ),
+  'Test Run 1',
+  (SELECT id FROM run_series WHERE user_id = (SELECT id FROM users WHERE email = 'company@example.com')
+   AND name = 'Test Series 1'),
+  NOW(), NULL, 'running'
+);

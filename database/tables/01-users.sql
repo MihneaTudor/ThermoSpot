@@ -1,0 +1,10 @@
+CREATE TABLE users (
+  id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  email         VARCHAR(255)    NOT NULL,
+  display_name  VARCHAR(100)    NOT NULL,
+  password_hash VARCHAR(255)    NULL,
+  created_at    DATETIME(6)     NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_at    DATETIME(6)     NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_users_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
