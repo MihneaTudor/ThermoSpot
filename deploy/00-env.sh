@@ -1,0 +1,6 @@
+export AZURE_SUBSCRIPTION_ID="f153c80a-d1f4-461e-b6b4-9816e5994c2e"
+export RESOURCE_GROUP="ThermoCal"
+export AKS_CLUSTER_NAME="Thermo_cluster"
+export ACR_NAME="thermocalcontainerregistry"
+export IMAGE_TAG="latest"
+export K8S_NAMESPACE="dev"
