@@ -1,6 +1,7 @@
 import "./PastPrintsLog.css";
 
 const TAG_CONFIG = {
+    running: { label: "Running", color: "var(--status-online)" },
     completed: { label: "Completed", color: "var(--status-online)" },
     issue: { label: "Issue", color: "var(--status-idle)" },
     error: { label: "Error", color: "var(--status-error)"},

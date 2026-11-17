@@ -1,7 +1,7 @@
 services:
     database:
-        build: 
-          context: ./database
+        build:
+            context: ./database
         environment:
             MYSQL_DATABASE: ${MYSQL_DATABASE}
             MYSQL_USER: ${MYSQL_USER}
@@ -11,6 +11,44 @@ services:
             - "${MYSQL_PORT}:3306"
         volumes:
             - mysql_data:/var/lib/mysql
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+            interval: 5s
+            timeout: 5s
+            retries: 20
+
+    backend:
+        build:
+            context: ./backend
+        environment:
+            DB_HOST: database          # the service name, not 127.0.0.1
+            MYSQL_PORT: 3306           # the port INSIDE the network, not the published one
+            MYSQL_DATABASE: ${MYSQL_DATABASE}
+            MYSQL_USER: ${MYSQL_USER}
+            MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+            DEMO_USER_EMAIL: ${DEMO_USER_EMAIL:-company@example.com}
+        volumes:
+            - ./backend:/app
+        ports:
+            - "8000:8000"
+        depends_on:
+            database:
+                condition: service_healthy
+        restart: unless-stopped
+
+    frontend:
+        build:
+            context: ./frontend
+        environment:
+            VITE_API_URL: http://localhost:8000
+        volumes:
+            - ./frontend:/app
+            - /app/node_modules
+        ports:
+            - "5173:5173"
+        depends_on:
+            - backend
         restart: unless-stopped
 
 volumes:

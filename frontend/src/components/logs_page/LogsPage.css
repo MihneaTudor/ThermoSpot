@@ -184,6 +184,14 @@
   text-transform: lowercase;
 }
 
+.logs-table__tag--running {
+  background: #f2c94c;
+  color: #171e2a;
+  font-size: 0.66rem;
+  text-transform: none;
+  white-space: nowrap;
+}
+
 /* ---------- sections ---------- */
 .logs-page {
   --logs-columns: 150px minmax(0, 1fr) 160px 200px;

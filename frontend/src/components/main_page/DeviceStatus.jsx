@@ -6,7 +6,13 @@ import "./DeviceStatus.css";
 
 const STATUS_LABELS = dashboardContent.labels.status;
 
-export function DeviceDetailsPage({ devices, selectedDevice, onSelectDevice, onAddDevice, onDeleteDevice, onStatusChange, onSaveDevice }) {
+export function DeviceDetailsPage(props) {
+  const { selectedDevice } = props;
+  // a new key remounts the content, so all state is rebuilt for each device
+  return <DeviceDetailsContent key={selectedDevice?.id ?? "none"} {...props} />;
+}
+
+function DeviceDetailsContent({ devices, selectedDevice, onSelectDevice, onAddDevice, onDeleteDevice, onStatusChange, onSaveDevice }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [formData, setFormData] = useState({
@@ -28,25 +34,6 @@ export function DeviceDetailsPage({ devices, selectedDevice, onSelectDevice, onA
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isConfirmingDelete]);
-
-  useEffect(() => {
-    if (!selectedDevice) {
-      return;
-    }
-
-    setFormData({
-      name: selectedDevice.name,
-      model: selectedDevice.model,
-      boardSerialNumber: selectedDevice.boardSerialNumber,
-      location: selectedDevice.location,
-      uptime: selectedDevice.uptime,
-      boardTemperature: selectedDevice.boardTemperature,
-      lastMaintenance: selectedDevice.lastMaintenance,
-      notes: selectedDevice.notes,
-    });
-    setIsEditing(false);
-    setIsConfirmingDelete(false);
-  }, [selectedDevice]);
 
   if (!selectedDevice) {
     return (

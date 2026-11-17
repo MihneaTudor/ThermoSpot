@@ -1,5 +1,5 @@
-import dashboardContent from "../../data/dashboardContent.json";
 import "./WelcomeHeader.css";
+import dashboardContent from "../../data/dashboardContent.json";
 
 export default function WelcomeHeader({ userName }) {
     return (

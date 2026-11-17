@@ -7,79 +7,56 @@ import {
   faCaretUp,
   faMagnifyingGlass,
 } from "@fortawesome/free-solid-svg-icons";
-import ProgressBar from "../ProgressBar";
 import "../main_page/PastPrintsLog.css";
+import { DEFAULT_ESTIMATED_REMAINING_MINUTES } from "./logConstants";
 import "./LogsPage.css";
 
-function parseDateString(d) {
-  if (!d) return new Date(0);
-  const parts = d.split("-");
-  if (parts.length === 3) {
-    const [dd, mm, yyyy] = parts.map((p) => parseInt(p, 10));
-    if (!isNaN(dd) && !isNaN(mm) && !isNaN(yyyy)) {
-      return new Date(yyyy, mm - 1, dd);
-    }
-  }
-  const parsed = Date.parse(d);
-  return isNaN(parsed) ? new Date(0) : new Date(parsed);
+function startedAtMs(entry) {
+  const ms = Date.parse(entry.startedAt ?? "");
+  return Number.isNaN(ms) ? 0 : ms;
 }
 
-export default function LogsPage({ entries = [], project, onSelectPrint }) {
+function formatLocalDate(entry) {
+  const ms = startedAtMs(entry);
+  if (!ms) return entry.date || "";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  })
+    .format(new Date(ms))
+    .replaceAll("/", "-");
+}
+
+export default function LogsPage({ entries = [], onSelectPrint, loading = false, error = "" }) {
   const [query, setQuery] = useState("");
   const [sortDir, setSortDir] = useState("desc");
   const [showLiveSheet, setShowLiveSheet] = useState(true);
 
   const featuredRows = useMemo(() => {
-    const featured = [];
-
-    if (project) {
-      featured.push({
-        id: "live-project",
-        date: entries[0]?.date ?? "Current",
-        projectName: project.name,
-        device: entries[0]?.device ?? "ThermSpot Prototype",
-        progress: project.progress ?? 0,
-        realId: entries[0]?.id ?? null,
-        live: true,
-      });
-    }
-
-    const additional = entries.slice(0, 1).filter((entry) => entry.id !== featured[0]?.realId);
-    additional.forEach((entry) => {
-      featured.push({
-        id: `live-${entry.id}`,
-        date: entry.date,
-        projectName: entry.projectName,
-        device: entry.device,
-        progress: Math.min(100, Math.max(0, Number(entry.progress ?? project?.progress ?? 0))),
-        realId: entry.id,
-        live: true,
-      });
-    });
-
-    return featured.slice(0, 2);
-  }, [entries, project]);
+    return entries
+      .filter((entry) => entry.status === "running")
+      .map((entry) => ({ ...entry, realId: entry.id }));
+  }, [entries]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    let list = entries.slice();
+    let list = entries.filter((entry) => entry.status !== "running");
 
     if (q) {
       list = list.filter((entry) =>
         (entry.projectName || "").toLowerCase().includes(q) ||
-        (entry.date || "").toLowerCase().includes(q) ||
+        formatLocalDate(entry).toLowerCase().includes(q) ||
         (entry.device || "").toLowerCase().includes(q) ||
         (entry.tag || "").toLowerCase().includes(q)
       );
     }
 
-    list.sort((a, b) => {
-      const da = parseDateString(a.date);
-      const db = parseDateString(b.date);
-      if (da < db) return sortDir === "asc" ? -1 : 1;
-      if (da > db) return sortDir === "asc" ? 1 : -1;
-      return 0;
-    });
+    list.sort((a, b) =>
+      sortDir === "asc"
+        ? startedAtMs(a) - startedAtMs(b)
+        : startedAtMs(b) - startedAtMs(a)
+    );
 
     return list;
   }, [entries, query, sortDir]);
@@ -102,6 +79,9 @@ export default function LogsPage({ entries = [], project, onSelectPrint }) {
           </div>
         </div>
       </div>
+
+      {loading && <p role="status">Loading print logs...</p>}
+      {error && <p role="alert">{error}</p>}
 
       {featuredRows.length > 0 && (
         <section className="logs-section">
@@ -133,13 +113,11 @@ export default function LogsPage({ entries = [], project, onSelectPrint }) {
                 </div>
                 <div className="logs-table__col logs-table__col--title">Title</div>
                 <div className="logs-table__col logs-table__col--device">Device</div>
-                <div className="logs-table__col logs-table__col--tag">Progress</div>
+                <div className="logs-table__col logs-table__col--tag">Status</div>
               </div>
 
               <div className="logs-table__body">
-                {featuredRows.map((entry) => {
-                  const pct = Math.min(100, Math.max(0, Number(entry.progress) || 0));
-                  return (
+                {featuredRows.map((entry) => (
                     <button
                       type="button"
                       key={entry.id}
@@ -166,13 +144,12 @@ export default function LogsPage({ entries = [], project, onSelectPrint }) {
                       </div>
 
                       <div className="logs-table__cell logs-table__cell--tag">
-                        <div className="logs-table__progress-wrapper">
-                          <ProgressBar value={pct} position="above" />
-                        </div>
+                        <span className="logs-table__tag logs-table__tag--running">
+                          Running · ETA ~{entry.estimatedRemainingMinutes ?? DEFAULT_ESTIMATED_REMAINING_MINUTES} min
+                        </span>
                       </div>
                     </button>
-                  );
-                })}
+                ))}
               </div>
             </div>
           )}
@@ -203,9 +180,12 @@ export default function LogsPage({ entries = [], project, onSelectPrint }) {
           </div>
 
           <div className="logs-table__body">
+            {!loading && !error && filtered.length === 0 && (
+              <p className="logs-table__empty">No previous print logs found.</p>
+            )}
             {filtered.map((entry) => (
               <button type="button" key={entry.id} className="logs-table__row" onClick={() => onSelectPrint(entry.id)}>
-                <div className="logs-table__cell logs-table__cell--date">{entry.date}</div>
+                <div className="logs-table__cell logs-table__cell--date">{formatLocalDate(entry)}</div>
                 <div className="logs-table__cell logs-table__cell--title">
                   <span className="logs-table__title-text">{entry.projectName}</span>
                 </div>

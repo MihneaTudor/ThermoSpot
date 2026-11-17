@@ -5,6 +5,7 @@ CREATE TABLE process_runs (
   name        VARCHAR(255)    NOT NULL,
   series_id   BIGINT UNSIGNED NULL,
   options     JSON            NULL,
+  notes       VARCHAR(128)    NULL,
   started_at  DATETIME(6)     NOT NULL,
   ended_at    DATETIME(6)     NULL,            -- NULL while the run is still going
   status      ENUM('running','completed','paused', 'aborted','failed') NOT NULL DEFAULT 'running',
