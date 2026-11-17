@@ -20,7 +20,7 @@ done
 : "${K8S_NAMESPACE:?Set K8S_NAMESPACE in deploy/00-env.sh}"
 
 
-DATABASE_IMAGE="${ACR_NAME}.azurecr.io/thermospot-database:${IMAGE_TAG}"
+DATABASE_IMAGE=$(az acr show -n "$ACR_NAME" --query loginServer -o tsv)/thermospot-database:${IMAGE_TAG}
 MANIFEST="${SCRIPT_DIR}/k8s.yaml"
 DB_SECRET_NAME="thermospot-db-secret"
 
@@ -39,19 +39,20 @@ kubectl create namespace "$K8S_NAMESPACE" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 if ! kubectl get secret "$DB_SECRET_NAME" --namespace "$K8S_NAMESPACE" >/dev/null 2>&1; then
-  cat >&2 <<EOF
-Required Kubernetes Secret '$DB_SECRET_NAME' was not found in namespace '$K8S_NAMESPACE'.
-Create it before deploying, supplying real credentials without committing them:
-  kubectl create secret generic $DB_SECRET_NAME -n $K8S_NAMESPACE \\
-    --from-literal=MYSQL_DATABASE=ThermoDB \\
-    --from-literal=MYSQL_USER=<database-user> \\
-    --from-literal=MYSQL_PASSWORD=<database-password> \\
-    --from-literal=MYSQL_ROOT_PASSWORD=<root-password>
+  echo "Required Kubernetes Secret '$DB_SECRET_NAME' was not found in namespace '$K8S_NAMESPACE'." >&2
+  echo "Create it before deploying, supplying real credentials without committing them:" >&2
+  echo "  kubectl create secret generic $DB_SECRET_NAME -n $K8S_NAMESPACE \\"
+  echo "    --from-literal=MYSQL_DATABASE=ThermoDB \\"
+  echo "    --from-literal=MYSQL_USER=<database-user> \\"
+  echo "    --from-literal=MYSQL_PASSWORD=<database-password> \\"
+  echo "    --from-literal=MYSQL_ROOT_PASSWORD=<root-password>"
 EOF
   exit 1
 fi
 
+echo "$DATABASE_IMAGE"
 az acr login --name "$ACR_NAME"
+# once we have the other images, compile them all with the docker-compose file and push them to ACR that way
 docker build \
   --tag "$DATABASE_IMAGE" \
   --file "${REPO_ROOT}/database/Dockerfile" \
@@ -63,13 +64,3 @@ sed "s|IMAGE_PLACEHOLDER|${DATABASE_IMAGE}|g" "$MANIFEST" |
 kubectl rollout status statefulset/thermospot-database \
   --namespace "$K8S_NAMESPACE" \
   --timeout=300s
-
-# Future frontend image (React + Vite; add frontend/Dockerfile):
-# FRONTEND_IMAGE="${ACR_NAME}.azurecr.io/thermospot-frontend:${IMAGE_TAG}"
-# docker build --tag "$FRONTEND_IMAGE" --file "${REPO_ROOT}/frontend/Dockerfile" "${REPO_ROOT}/frontend"
-# docker push "$FRONTEND_IMAGE"
-#
-# Future backend image (FastAPI + Python; add backend/Dockerfile):
-# BACKEND_IMAGE="${ACR_NAME}.azurecr.io/thermospot-backend:${IMAGE_TAG}"
-# docker build --tag "$BACKEND_IMAGE" --file "${REPO_ROOT}/backend/Dockerfile" "${REPO_ROOT}/backend"
-# docker push "$BACKEND_IMAGE"
