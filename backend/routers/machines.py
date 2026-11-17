@@ -1,7 +1,9 @@
-from fastapi import APIRouter, HTTPException
+
+from fastapi import APIRouter, HTTPException, Depends
 from db_connection import get_connection
 
 from schemas.machines import MachineCreate, MachineUpdate
+from security import get_current_user
 
 router = APIRouter(
     prefix="/machines",
@@ -10,8 +12,12 @@ router = APIRouter(
 
 
 # CREATE MACHINE
-@router.post("/{user_id}")
-def create_machine(user_id: int, machine: MachineCreate):
+@router.post("/")
+def create_machine(
+    machine: MachineCreate,
+    user: dict = Depends(get_current_user)
+):
+    user_id = user["id"]
 
     conn = get_connection()
     cursor = conn.cursor()
@@ -44,9 +50,12 @@ def create_machine(user_id: int, machine: MachineCreate):
         conn.close()
 
 
-# GET ALL MACHINES FOR A USER
-@router.get("/{user_id}")
-def get_machines(user_id: int):
+# GET ALL MACHINES FOR CURRENT USER
+@router.get("/")
+def get_machines(
+    user: dict = Depends(get_current_user)
+):
+    user_id = user["id"]
 
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
@@ -70,8 +79,12 @@ def get_machines(user_id: int):
 
 
 # GET ONE MACHINE
-@router.get("/{user_id}/{machine_id}")
-def get_machine(user_id: int, machine_id: int):
+@router.get("/{machine_id}")
+def get_machine(
+    machine_id: int,
+    user: dict = Depends(get_current_user)
+):
+    user_id = user["id"]
 
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
@@ -102,12 +115,13 @@ def get_machine(user_id: int, machine_id: int):
 
 
 # UPDATE MACHINE
-@router.put("/{user_id}/{machine_id}")
+@router.put("/{machine_id}")
 def update_machine(
-    user_id: int,
     machine_id: int,
-    machine: MachineUpdate
+    machine: MachineUpdate,
+    user: dict = Depends(get_current_user)
 ):
+    user_id = user["id"]
 
     conn = get_connection()
     cursor = conn.cursor()
@@ -160,8 +174,12 @@ def update_machine(
 
 
 # DELETE MACHINE
-@router.delete("/{user_id}/{machine_id}")
-def delete_machine(user_id: int, machine_id: int):
+@router.delete("/{machine_id}")
+def delete_machine(
+    machine_id: int,
+    user: dict = Depends(get_current_user)
+):
+    user_id = user["id"]
 
     conn = get_connection()
     cursor = conn.cursor()
