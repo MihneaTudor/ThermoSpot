@@ -7,6 +7,9 @@ dependencies = [
     "mysql-connector-python",
     "python-dotenv",
     "uvicorn[standard]",
+    "PyJWT",
+    "pwdlib[argon2]",
+    "python-multipart",
 ]
 [tool.setuptools]
 py-modules = ["main", "database"]
