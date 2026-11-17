@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import dashboardContent from '../data/dashboardContent.json'
+import dashboardContent from "../data/dashboardContent.json";
 import './Header.css'
 
 function Header({ onOpenDeviceDetails, onGoDashboard, onOpenLogs }) {
