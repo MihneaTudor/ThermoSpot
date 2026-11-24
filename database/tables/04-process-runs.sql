@@ -8,6 +8,7 @@ CREATE TABLE process_runs (
   notes       VARCHAR(128)    NULL,
   started_at  DATETIME(6)     NOT NULL,
   ended_at    DATETIME(6)     NULL,            -- NULL while the run is still going
+  estimated_end_at DATETIME(6) NULL,
   status      ENUM('running','completed','paused', 'aborted','failed') NOT NULL DEFAULT 'running',
   PRIMARY KEY (id),
   -- A series number can only be used once per user (several NULL pairs are allowed).

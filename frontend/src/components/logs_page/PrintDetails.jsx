@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft, faPen, faXmark, faFloppyDisk, faDownload, faUpload } from "@fortawesome/free-solid-svg-icons";
-import dashboardContent from "../../data/dashboardContent.json";
 import { fetchPrintDetails, savePrintNotes } from "../../api";
-import { DEFAULT_ESTIMATED_REMAINING_MINUTES } from "./logConstants";
+import { useNow, minutesUntil, formatEta } from "./logUtils";
 import "./PrintDetails.css";
 
 const EMPTY_NOTES = "No notes saved for this print yet.";
-const LABELS = dashboardContent.labels;
+const LABELS = { edit: "Edit", cancel: "Cancel", saveChanges: "Save changes" };
 
 const TAG_CONFIG = {
   running: { label: "Running", color: "var(--status-online)" },
@@ -19,7 +18,6 @@ const TAG_CONFIG = {
 /* ---------- temperature scale ---------- */
 const TEMP_MIN = 50;
 const TEMP_MAX = 150;
-const TIMELINE_STEP_MS = 60_000;
 const POLL_INTERVAL_MS = 5_000;
 const COLD = [59, 183, 255]; // #3bb7ff (complement of the orange)
 const MID = [255, 255, 255]; // white
@@ -60,38 +58,17 @@ function formatDateTime(date) {
   };
 }
 
-function buildDemoReadings(progress) {
-  const centerX = 1.5 + 4.5 * progress;
-  const centerY = 5 - 3 * progress;
-  const wave = 0.5 + 0.5 * Math.sin(progress * Math.PI * 2);
-
-  return SENSORS.map((_, index) => {
-    const row = Math.floor(index / 8);
-    const column = index % 8;
-    const distance = (column - centerX) ** 2 + (row - centerY) ** 2;
-    const tempC = Math.round(clamp(58 + wave * 68 * Math.exp(-distance / 15) + ((index * 7) % 13), TEMP_MIN, TEMP_MAX));
-    return { tempC, temp: `${tempC}°C`, color: tempToColor(tempC) };
-  });
-}
-
-function buildDemoFrames(entry) {
-  const startedAt = new Date(entry.startedAt || `${entry.date.split("-").reverse().join("-")}T14:00:00`);
-  const endedAt = entry.endedAt ? new Date(entry.endedAt) : new Date(startedAt.getTime() + 30 * 60 * 1000);
-  const duration = Math.max(30 * 60 * 1000, endedAt.getTime() - startedAt.getTime());
-  const frameCount = 31;
-
-  return Array.from({ length: frameCount }, (_, frameIndex) => {
-    const progress = frameIndex / (frameCount - 1);
-    const timestamp = new Date(startedAt.getTime() + duration * progress);
-    const formatted = formatDateTime(timestamp);
-
-    return {
-      time: formatted.time,
-      date: formatted.date,
-      stamp: `${formatted.date} · ${formatted.time}`,
-      readings: buildDemoReadings(progress),
-    };
-  });
+function toFrame(reading) {
+  const formatted = formatDateTime(new Date(reading.recordedAt));
+  return {
+    time: formatted.time,
+    date: formatted.date,
+    stamp: `${formatted.date} · ${formatted.time}`,
+    readings: reading.values.map((value) => {
+      const tempC = Math.round(Number(value));
+      return { tempC, temp: `${tempC}°C`, color: tempToColor(tempC) };
+    }),
+  };
 }
 
 export default function PrintDetails({ entry, onBack }) {
@@ -102,6 +79,7 @@ export default function PrintDetails({ entry, onBack }) {
 
 function PrintDetailsContent({ entry, onBack }) {
   const [detail, setDetail] = useState(entry);
+  const [readings, setReadings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [notes, setNotes] = useState(entry.notes ?? "");
@@ -109,27 +87,26 @@ function PrintDetailsContent({ entry, onBack }) {
   const [draftNotes, setDraftNotes] = useState(notes);
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [notesError, setNotesError] = useState("");
-  const [liveNow, setLiveNow] = useState(() => Date.parse(entry.startedAt ?? "") || 0);
+  const [selectedFrameIndex, setSelectedFrameIndex] = useState(null); // null = follow the latest reading
+  const [selectedIndex, setSelectedIndex] = useState(null);
+  const now = useNow(15_000);
 
+  // remembers the newest reading we have, so polling only asks for newer ones
+  const lastRecordedAtRef = useRef(null);
   useEffect(() => {
-    if (detail.status !== "running") return undefined;
-    const initialRefresh = window.setTimeout(() => setLiveNow(Date.now()), 0);
-    const timer = window.setInterval(() => setLiveNow(Date.now()), 15_000);
-    return () => {
-      window.clearTimeout(initialRefresh);
-      window.clearInterval(timer);
-    };
-  }, [detail.status]);
+    lastRecordedAtRef.current = readings.at(-1)?.recordedAt ?? null;
+  }, [readings]);
 
-  // initial load
+  // initial load: the whole print
   useEffect(() => {
     let cancelled = false;
     fetchPrintDetails(entry.id)
-      .then((result) => {
+      .then(({ readings: all, ...rest }) => {
         if (cancelled) return;
-        setDetail(result);
-        setNotes(result.notes ?? "");
-        setDraftNotes(result.notes ?? "");
+        setDetail(rest);
+        setReadings(all ?? []);
+        setNotes(rest.notes ?? "");
+        setDraftNotes(rest.notes ?? "");
       })
       .catch((error) => {
         if (!cancelled) setLoadError(error.message);
@@ -143,18 +120,24 @@ function PrintDetailsContent({ entry, onBack }) {
     };
   }, [entry.id]);
 
-  // live refresh: only while the print is running
+  // live refresh: only while the print is running, and only new readings
   useEffect(() => {
     if (detail.status !== "running" || isLoading) return undefined;
 
     let cancelled = false;
     const timer = window.setInterval(() => {
-      fetchPrintDetails(entry.id)
-        .then((result) => {
+      fetchPrintDetails(entry.id, { since: lastRecordedAtRef.current })
+        .then(({ readings: fresh, ...rest }) => {
           if (cancelled) return;
-          // update data, but do NOT touch notes: the user may be editing them
-          setDetail(result);
+          // update status/ETA, but do NOT touch notes: the user may be editing them
+          setDetail(rest);
           setLoadError("");
+          if (fresh?.length) {
+            setReadings((current) => {
+              const known = new Set(current.map((r) => r.recordedAt));
+              return [...current, ...fresh.filter((r) => !known.has(r.recordedAt))];
+            });
+          }
         })
         .catch((error) => {
           // keep showing the last good data; just surface the problem
@@ -169,75 +152,22 @@ function PrintDetailsContent({ entry, onBack }) {
   }, [detail.status, entry.id, isLoading]);
 
   const isRunning = detail.status === "running";
-  const estimatedRemainingMinutes = Math.max(
-    1,
-    Number(detail.estimatedRemainingMinutes ?? DEFAULT_ESTIMATED_REMAINING_MINUTES)
+  const etaLabel = formatEta(minutesUntil(detail.estimatedEndAt, now));
+  const hasRecordedReadings = readings.length > 0;
+
+  // the slider walks through the real readings: first upload -> latest upload
+  const lastIndex = readings.length - 1;
+  const frameIndex = Math.max(
+    0,
+    Math.min(selectedFrameIndex ?? (isRunning ? lastIndex : 0), lastIndex)
   );
-  const etaMinutes = estimatedRemainingMinutes;
-  const hasRecordedReadings = (detail.readings ?? []).length > 0;
-  const timeline = useMemo(() => {
-    if (isRunning && !isLoading && !loadError) {
-      const startedAt = new Date(detail.startedAt);
-      const elapsedMs = Math.max(0, liveNow - startedAt.getTime());
-      const currentIndex = Math.ceil(elapsedMs / TIMELINE_STEP_MS);
-      const plannedIndex = currentIndex + Math.ceil(
-        (estimatedRemainingMinutes * 60_000) / TIMELINE_STEP_MS
-      );
-      const actualReadings = (detail.readings ?? []).map((reading) => ({
-        timestamp: new Date(reading.recordedAt).getTime(),
-        readings: reading.values.map((value) => {
-          const tempC = Math.round(Number(value));
-          return { tempC, temp: `${tempC}°C`, color: tempToColor(tempC) };
-        }),
-      }));
-
-      const frames = Array.from({ length: currentIndex + 1 }, (_, index) => {
-        const timestamp = new Date(Math.min(startedAt.getTime() + index * TIMELINE_STEP_MS, liveNow));
-        const formatted = formatDateTime(timestamp);
-        const latestReading = actualReadings.findLast((reading) => reading.timestamp <= timestamp.getTime());
-        const readings = latestReading?.readings ?? actualReadings[0]?.readings ?? buildDemoReadings(
-          currentIndex > 0 ? index / currentIndex : 0
-        );
-
-        return {
-          time: formatted.time,
-          date: formatted.date,
-          stamp: `${formatted.date} · ${formatted.time}`,
-          readings,
-        };
-      });
-
-      return { frames, currentIndex, sliderMax: plannedIndex };
-    }
-
-    if (!hasRecordedReadings) {
-      const frames = !isLoading && !loadError ? buildDemoFrames(detail) : [];
-      return { frames, currentIndex: frames.length - 1, sliderMax: frames.length - 1 };
-    }
-
-    const frames = (detail.readings ?? []).map((reading) => {
-      const recordedAt = new Date(reading.recordedAt);
-      const formatted = formatDateTime(recordedAt);
-      return {
-        time: formatted.time,
-        date: formatted.date,
-        stamp: `${formatted.date} · ${formatted.time}`,
-        readings: reading.values.map((value) => {
-          const tempC = Math.round(Number(value));
-          return { tempC, temp: `${tempC}°C`, color: tempToColor(tempC) };
-        }),
-      };
-    });
-    return { frames, currentIndex: frames.length - 1, sliderMax: frames.length - 1 };
-  }, [detail, estimatedRemainingMinutes, hasRecordedReadings, isLoading, isRunning, liveNow, loadError]);
-  const [selectedFrameIndex, setSelectedFrameIndex] = useState(null);
-  const frameIndex = selectedFrameIndex ?? (isRunning ? timeline.currentIndex : 0);
-  const [selectedIndex, setSelectedIndex] = useState(null);
+  const frame = useMemo(
+    () => (readings[frameIndex] ? toFrame(readings[frameIndex]) : null),
+    [readings, frameIndex]
+  );
 
   const gridWrapRef = useRef(null);
   const [tooltip, setTooltip] = useState(null); // { index, left, top, below }
-
-  const frame = timeline.frames[Math.min(frameIndex, timeline.frames.length - 1)] ?? null;
 
   const selectedSensor = selectedIndex !== null ? SENSORS[selectedIndex] : null;
   const selectedReading = selectedIndex !== null && frame ? frame.readings[selectedIndex] : null;
@@ -245,7 +175,7 @@ function PrintDetailsContent({ entry, onBack }) {
   const tipSensor = tooltip ? SENSORS[tooltip.index] : null;
   const tipReading = tooltip && frame ? frame.readings[tooltip.index] : null;
 
-    const tag = TAG_CONFIG[detail.tag] ?? {
+  const tag = TAG_CONFIG[detail.tag] ?? {
     label: detail.tag ?? "Unknown",
     color: "var(--status-idle)",
   };
@@ -317,7 +247,7 @@ function PrintDetailsContent({ entry, onBack }) {
               </span>
               {isRunning && (
                 <span className="print-details__eta" aria-live="polite">
-                  ETA ~{etaMinutes} min
+                  {etaLabel}
                 </span>
               )}
             </div>
@@ -388,10 +318,11 @@ function PrintDetailsContent({ entry, onBack }) {
         {loadError && <p role="alert">{loadError}</p>}
         {!isLoading && !loadError && !hasRecordedReadings && (
           <p className="print-details__demo-notice" role="status">
-            Showing sample sensor data because this print has no recorded readings.
+            {isRunning
+              ? "Waiting for the first readings from the device..."
+              : "No readings were recorded for this print."}
           </p>
         )}
-
         {frame && <div className="print-details__content">
           <div className="print-details__panel print-details__panel--grid">
             <div className="print-details__grid-block">
@@ -462,7 +393,7 @@ function PrintDetailsContent({ entry, onBack }) {
                   <span className="print-details__timestamp-date">{frame.date}</span>
                   <span className="print-details__timestamp-time">{frame.time}</span>
                 </div>
-                {isRunning && selectedFrameIndex !== null && frameIndex < timeline.currentIndex && (
+                {isRunning && selectedFrameIndex !== null && frameIndex < lastIndex && (
                   <button
                     type="button"
                     className="print-details__now-button"
@@ -475,10 +406,14 @@ function PrintDetailsContent({ entry, onBack }) {
                   className="print-details__slider"
                   type="range"
                   min={0}
-                  max={timeline.sliderMax}
+                  max={Math.max(lastIndex, 0)}
                   step={1}
                   value={frameIndex}
-                  onChange={(event) => setSelectedFrameIndex(Math.min(Number(event.target.value), timeline.currentIndex))}
+                  onChange={(event) => {
+                    const value = Number(event.target.value);
+                    // dragging to the end of a running print goes back to following the latest data
+                    setSelectedFrameIndex(isRunning && value >= lastIndex ? null : value);
+                  }}
                   aria-label="Time"
                   aria-valuetext={frame.stamp}
                 />

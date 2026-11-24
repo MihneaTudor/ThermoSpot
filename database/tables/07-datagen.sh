@@ -1,4 +1,3 @@
 #!/bin/bash
 
-set -euo pipefail
 python3 /docker-entrypoint-initdb.d/07-datagen.py | docker_process_sql --database="$MYSQL_DATABASE"

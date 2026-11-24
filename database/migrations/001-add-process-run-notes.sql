@@ -1,2 +1,0 @@
-ALTER TABLE process_runs
-  ADD COLUMN notes VARCHAR(128) NULL;

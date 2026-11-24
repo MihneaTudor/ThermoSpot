@@ -10,6 +10,7 @@ dependencies = [
     "PyJWT",
     "pwdlib[argon2]",
     "python-multipart",
+    "email-validator",
 ]
 [tool.setuptools]
 py-modules = ["main", "database"]

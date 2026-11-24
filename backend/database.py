@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-DEMO_USER_EMAIL = os.getenv("DEMO_USER_EMAIL", "company@example.com")
 READING_COLUMNS = [f"m_{row}{column}" for row in range(8) for column in range(8)]
 
 
@@ -27,42 +26,39 @@ def connect_database():
     )
 
 
-def list_logs():
+
+def list_logs(user_id):
     connection = connect_database()
     try:
         with connection.cursor(dictionary=True) as cursor:
             cursor.execute(
                 """
-                SELECT runs.id, runs.name, runs.started_at, runs.ended_at,
+                SELECT runs.id, runs.name, runs.started_at, runs.ended_at, runs.estimated_end_at,
                        runs.status, runs.notes, machines.name AS device
                 FROM process_runs AS runs
                 JOIN machines ON machines.id = runs.machine_id
-                JOIN users ON users.id = runs.user_id
-                WHERE users.email = %s
+                WHERE runs.user_id = %s
                 ORDER BY runs.started_at DESC
                 """,
-                (DEMO_USER_EMAIL,),
+                (user_id,),
             )
             return cursor.fetchall()
     finally:
         connection.close()
 
 
-def create_log(name, status, machine_name=None):
+def create_log(user_id, name, status, machine_name=None):
     connection = connect_database()
     try:
         with connection.cursor(dictionary=True) as cursor:
             cursor.execute(
                 """
-                SELECT users.id AS user_id, machines.id AS machine_id
-                FROM users
-                JOIN machines ON machines.user_id = users.id
-                WHERE users.email = %s
-                  AND (%s IS NULL OR machines.name = %s)
-                ORDER BY machines.id
+                SELECT id FROM machines
+                WHERE (%s IS NULL OR name = %s)
+                ORDER BY id
                 LIMIT 1
                 """,
-                (DEMO_USER_EMAIL, machine_name, machine_name),
+                (machine_name, machine_name),
             )
             machine = cursor.fetchone()
             if machine is None:
@@ -79,13 +75,7 @@ def create_log(name, status, machine_name=None):
                     %s
                 )
                 """,
-                (
-                    machine["user_id"],
-                    machine["machine_id"],
-                    name,
-                    status,
-                    status,
-                ),
+                (user_id, machine["id"], name, status, status),
             )
             run_id = cursor.lastrowid
             connection.commit()
@@ -94,31 +84,34 @@ def create_log(name, status, machine_name=None):
         connection.close()
 
 
-def get_log(run_id):
+def get_log(user_id, run_id, since=None):
     connection = connect_database()
     try:
         with connection.cursor(dictionary=True) as cursor:
             cursor.execute(
                 """
                 SELECT runs.id, runs.name, runs.started_at, runs.ended_at,
-                       runs.status, runs.notes, machines.name AS device
+                       runs.estimated_end_at, runs.status, runs.notes,
+                       machines.name AS device
                 FROM process_runs AS runs
                 JOIN machines ON machines.id = runs.machine_id
-                JOIN users ON users.id = runs.user_id
-                WHERE runs.id = %s AND users.email = %s
+                WHERE runs.id = %s AND runs.user_id = %s
                 """,
-                (run_id, DEMO_USER_EMAIL),
+                (run_id, user_id),
             )
             run = cursor.fetchone()
             if run is None:
                 return None
 
             columns = ", ".join(READING_COLUMNS)
-            cursor.execute(
-                f"SELECT recorded_at, {columns} FROM readings "
-                "WHERE run_id = %s ORDER BY recorded_at",
-                (run_id,),
-            )
+            query = f"SELECT recorded_at, {columns} FROM readings WHERE run_id = %s"
+            params = [run_id]
+            if since is not None:
+                query += " AND recorded_at > %s"
+                params.append(since)
+            query += " ORDER BY recorded_at"
+
+            cursor.execute(query, tuple(params))
             run["readings"] = [
                 {
                     "recorded_at": row["recorded_at"],
@@ -131,27 +124,16 @@ def get_log(run_id):
         connection.close()
 
 
-def update_log_notes(run_id, notes):
+def update_log_notes(user_id, run_id, notes):
     connection = connect_database()
     try:
         with connection.cursor() as cursor:
             cursor.execute(
-                """
-                SELECT runs.id
-                FROM process_runs AS runs
-                JOIN users ON users.id = runs.user_id
-                WHERE runs.id = %s AND users.email = %s
-                """,
-                (run_id, DEMO_USER_EMAIL),
-            )
-            if cursor.fetchone() is None:
-                return False
-
-            cursor.execute(
-                "UPDATE process_runs SET notes = %s WHERE id = %s",
-                (notes, run_id),
+                "UPDATE process_runs SET notes = %s WHERE id = %s AND user_id = %s",
+                (notes, run_id, user_id),
             )
             connection.commit()
-            return True
+            # rowcount is 0 if the run doesn't exist, isn't yours, or the notes are unchanged
+            return cursor.rowcount > 0
     finally:
         connection.close()

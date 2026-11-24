@@ -1,14 +1,14 @@
 from datetime import datetime, timedelta, timezone
-
+import os
 import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from pwdlib import PasswordHash
 
-from db_connection import get_connection
+from database import connect_database
 
 
-SECRET_KEY = "SphfJGG8dPmLFo47uPJguPsd-NUB8Hj0kZep4pCYhUP4R1tObZXaMWSWFhb4pe9_8GZNGpGzprmd7XCO_wgArQ"
+SECRET_KEY = os.environ["SECRET_KEY"]
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
@@ -33,6 +33,8 @@ def create_access_token(user_id: int):
 
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
+def hash_password(plain_password):
+    return password_hash.hash(plain_password)
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
@@ -50,7 +52,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
             detail="Invalid or expired token"
         )
 
-    conn = get_connection()
+    conn = connect_database()
     cursor = conn.cursor(dictionary=True)
 
     try:

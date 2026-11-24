@@ -1,30 +1,43 @@
 import { useEffect, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {faTrash,faPen,faFloppyDisk,faXmark,faChevronDown} from "@fortawesome/free-solid-svg-icons";
-import dashboardContent from "../../data/dashboardContent.json";
+import { faTrash, faPen, faFloppyDisk, faXmark } from "@fortawesome/free-solid-svg-icons";
 import "./DeviceStatus.css";
 
-const STATUS_LABELS = dashboardContent.labels.status;
+const LABELS = {
+  currentDevice: "Current device:",
+  deviceManagement: "Device management",
+  deviceList: "Device list",
+  deviceInformation: "Device information",
+  noDevices: "No devices",
+  noDevicesConnected: "No devices connected yet",
+  addDevice: "+ Add device",
+  addSmall: "+ Add",
+  edit: "Edit",
+  cancel: "Cancel",
+  delete: "Delete",
+  saveChanges: "Save changes",
+};
+
+const STATUS_LABELS = {
+  online: "Online",
+  idle: "Idle",
+  offline: "Offline",
+  error: "Error",
+};
 
 export function DeviceDetailsPage(props) {
   const { selectedDevice } = props;
-  // a new key remounts the content, so all state is rebuilt for each device
   return <DeviceDetailsContent key={selectedDevice?.id ?? "none"} {...props} />;
 }
 
-function DeviceDetailsContent({ devices, selectedDevice, onSelectDevice, onAddDevice, onDeleteDevice, onStatusChange, onSaveDevice }) {
+function formatDate(iso) {
+  return iso ? new Date(iso).toLocaleString() : "—";
+}
+
+function DeviceDetailsContent({ devices, selectedDevice, onSelectDevice, onAddDevice, onDeleteDevice, onSaveDevice, error }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
-  const [formData, setFormData] = useState({
-    name: selectedDevice?.name ?? "",
-    model: selectedDevice?.model ?? "",
-    boardSerialNumber: selectedDevice?.boardSerialNumber ?? "",
-    location: selectedDevice?.location ?? "",
-    uptime: selectedDevice?.uptime ?? "",
-    boardTemperature: selectedDevice?.boardTemperature ?? "",
-    lastMaintenance: selectedDevice?.lastMaintenance ?? "",
-    notes: selectedDevice?.notes ?? "",
-  });
+  const [nameDraft, setNameDraft] = useState(selectedDevice?.name ?? "");
 
   useEffect(() => {
     if (!isConfirmingDelete) return;
@@ -39,53 +52,42 @@ function DeviceDetailsContent({ devices, selectedDevice, onSelectDevice, onAddDe
     return (
       <div className="device-page device-page--empty">
         <div className="device-page__empty-card">
-          <p className="device-card__label">{dashboardContent.labels.noDevices}</p>
-          <h2 className="device-page__title">{dashboardContent.labels.noDevicesConnected}</h2>
+          <p className="device-card__label">{LABELS.noDevices}</p>
+          <h2 className="device-page__title">{LABELS.noDevicesConnected}</h2>
+          {error && <p role="alert">{error}</p>}
           <button type="button" className="device-page__add" onClick={onAddDevice}>
-            {dashboardContent.labels.addDevice}
+            {LABELS.addDevice}
           </button>
         </div>
       </div>
     );
   }
 
-  const { id, name, status, detail, model, boardSerialNumber, location, uptime, boardTemperature, lastMaintenance, notes } = selectedDevice;
+  const { id, name, status, detail, createdAt, printCount, lastPrintAt } = selectedDevice;
   const label = STATUS_LABELS[status] ?? status;
 
-  const handleFieldChange = (field, value) => {
-    setFormData((current) => ({ ...current, [field]: value }));
-  };
-
-  const handleSave = () => {
-    onSaveDevice(id, {
-      ...selectedDevice,
-      ...formData,
-      name: formData.name,
-    });
-    setIsEditing(false);
-  };
-
-  const notesLength = formData.notes.length;
-
-  const handleConfirmDelete = () => {
-    setIsConfirmingDelete(false);
-    onDeleteDevice(id);
+  const handleSave = async () => {
+    const trimmed = nameDraft.trim();
+    if (!trimmed) return;
+    if (trimmed === name || (await onSaveDevice(id, { name: trimmed }))) {
+      setIsEditing(false);
+    }
   };
 
   return (
     <div className="device-page">
       <div className="device-page__header">
         <div className="device-page__header-copy">
-          <p className="device-card__label">{dashboardContent.labels.deviceManagement}</p>
+          <p className="device-card__label">{LABELS.deviceManagement}</p>
         </div>
       </div>
 
       <div className="device-page__layout">
         <aside className="device-page__sidebar">
           <div className="device-page__sidebar-header">
-            <p className="device-card__label">{dashboardContent.labels.deviceList}</p>
+            <p className="device-card__label">{LABELS.deviceList}</p>
             <button type="button" className="device-page__small-add" onClick={onAddDevice}>
-              {dashboardContent.labels.addSmall}
+              {LABELS.addSmall}
             </button>
           </div>
           <div className="device-page__list">
@@ -108,44 +110,35 @@ function DeviceDetailsContent({ devices, selectedDevice, onSelectDevice, onAddDe
         <main className="device-page__content" data-status={status}>
           <div className="device-page__title-row">
             <div className="device-page__title-block">
-              <p className="device-card__label">{dashboardContent.labels.deviceInformation}</p>
+              <p className="device-card__label">{LABELS.deviceInformation}</p>
               {isEditing ? (
                 <input
                   className="device-page__title-input"
-                  maxLength={25}
-                  value={formData.name}
-                  onChange={(event) => handleFieldChange("name", event.target.value)}
+                  maxLength={100}
+                  value={nameDraft}
+                  onChange={(event) => setNameDraft(event.target.value)}
                 />
               ) : (
                 <h2 className="device-page__title">{name}</h2>
               )}
             </div>
             <div className="device-page__actions">
-              <div className="device-page__status-wrap" data-status={status}>
-                <span className="device-page__status-dot" aria-hidden="true" />
-                <select
-                  className="device-page__status-select"
-                  value={status}
-                  onChange={(event) => onStatusChange(id, event.target.value)}
-                  aria-label="Update device status"
-                >
-                  <option value="online">Online</option>
-                  <option value="idle">Idle</option>
-                  <option value="offline">Offline</option>
-                  <option value="error">Error</option>
-                </select>
-                <FontAwesomeIcon icon={faChevronDown} className="device-page__status-chevron" />
-              </div>
-
-              <button type="button" className="device-page__action" onClick={() => setIsEditing((value) => !value)}>
+              <button
+                type="button"
+                className="device-page__action"
+                onClick={() => {
+                  setNameDraft(name);
+                  setIsEditing((value) => !value);
+                }}
+              >
                 <FontAwesomeIcon icon={isEditing ? faXmark : faPen} />
-                {isEditing ? dashboardContent.labels.cancel : dashboardContent.labels.edit}
+                {isEditing ? LABELS.cancel : LABELS.edit}
               </button>
 
               {isEditing && (
                 <button type="button" className="device-page__action device-page__action--primary" onClick={handleSave}>
                   <FontAwesomeIcon icon={faFloppyDisk} />
-                  {dashboardContent.labels.saveChanges}
+                  {LABELS.saveChanges}
                 </button>
               )}
 
@@ -155,7 +148,7 @@ function DeviceDetailsContent({ devices, selectedDevice, onSelectDevice, onAddDe
                 onClick={() => setIsConfirmingDelete(true)}
               >
                 <FontAwesomeIcon icon={faTrash} />
-                {dashboardContent.labels.delete}
+                {LABELS.delete}
               </button>
             </div>
           </div>
@@ -171,72 +164,25 @@ function DeviceDetailsContent({ devices, selectedDevice, onSelectDevice, onAddDe
             )}
           </div>
 
+          {error && <p role="alert" className="device-page__error">{error}</p>}
+
           <div className="device-page__grid">
             <div className="device-modal__item">
-              <span>Model</span>
-              {isEditing ? (
-                <input maxLength={25} value={formData.model} onChange={(event) => handleFieldChange("model", event.target.value)} />
-              ) : (
-                <strong>{model}</strong>
-              )}
+              <span>Added</span>
+              <strong>{formatDate(createdAt)}</strong>
             </div>
             <div className="device-modal__item">
-              <span>Board serial number</span>
-              {isEditing ? (
-                <input maxLength={25} value={formData.boardSerialNumber} onChange={(event) => handleFieldChange("boardSerialNumber", event.target.value)} />
-              ) : (
-                <strong>{boardSerialNumber}</strong>
-              )}
+              <span>Print logs</span>
+              <strong>{printCount}</strong>
             </div>
             <div className="device-modal__item">
-              <span>Location</span>
-              {isEditing ? (
-                <input maxLength={25} value={formData.location} onChange={(event) => handleFieldChange("location", event.target.value)} />
-              ) : (
-                <strong>{location}</strong>
-              )}
+              <span>Last print</span>
+              <strong>{formatDate(lastPrintAt)}</strong>
             </div>
-            <div className="device-modal__item">
-              <span>Uptime</span>
-              {isEditing ? (
-                <input maxLength={25} value={formData.uptime} onChange={(event) => handleFieldChange("uptime", event.target.value)} />
-              ) : (
-                <strong>{uptime}</strong>
-              )}
-            </div>
-            <div className="device-modal__item">
-              <span>Board temperature</span>
-              {isEditing ? (
-                <input maxLength={25} value={formData.boardTemperature} onChange={(event) => handleFieldChange("boardTemperature", event.target.value)} />
-              ) : (
-                <strong>{boardTemperature}</strong>
-              )}
-            </div>
-            <div className="device-modal__item">
-              <span>Last maintenance</span>
-              {isEditing ? (
-                <input maxLength={25} value={formData.lastMaintenance} onChange={(event) => handleFieldChange("lastMaintenance", event.target.value)} />
-              ) : (
-                <strong>{lastMaintenance}</strong>
-              )}
-            </div>
-          </div>
-
-          <div className="device-modal__notes">
-            <span className="device-modal__notes-label">Notes</span>
-            {isEditing ? (
-              <>
-                <textarea maxLength={128} value={formData.notes} onChange={(event) => handleFieldChange("notes", event.target.value)} rows={4} />
-                <div className="device-modal__notes-counter" aria-live="polite">
-                  {notesLength}/128
-                </div>
-              </>
-            ) : (
-              <p className="device-modal__notes-text">{notes}</p>
-            )}
           </div>
         </main>
       </div>
+
       {isConfirmingDelete && (
         <div className="device-modal__backdrop" onClick={() => setIsConfirmingDelete(false)}>
           <div
@@ -256,11 +202,18 @@ function DeviceDetailsContent({ devices, selectedDevice, onSelectDevice, onAddDe
             </p>
             <div className="device-confirm__actions">
               <button type="button" className="device-page__action" onClick={() => setIsConfirmingDelete(false)} autoFocus>
-                {dashboardContent.labels.cancel}
+                {LABELS.cancel}
               </button>
-              <button type="button" className="device-page__action device-page__action--danger-solid" onClick={handleConfirmDelete}>
+              <button
+                type="button"
+                className="device-page__action device-page__action--danger-solid"
+                onClick={() => {
+                  setIsConfirmingDelete(false);
+                  onDeleteDevice(id);
+                }}
+              >
                 <FontAwesomeIcon icon={faTrash} />
-                {dashboardContent.labels.delete}
+                {LABELS.delete}
               </button>
             </div>
           </div>
@@ -280,7 +233,7 @@ export default function DeviceStatus({ device, onOpenDetails }) {
 
   return (
     <div id="device">
-      <p className="device-card__label">{dashboardContent.labels.currentDevice}</p>
+      <p className="device-card__label">{LABELS.currentDevice}</p>
       <button type="button" className="device-card" data-status={status} onClick={onOpenDetails}>
         <p className="device-card__name">{name}</p>
         <div className="device-card__status-row">

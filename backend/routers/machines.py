@@ -1,6 +1,6 @@
-
+import mysql.connector
 from fastapi import APIRouter, HTTPException, Depends
-from db_connection import get_connection
+from database import connect_database
 
 from schemas.machines import MachineCreate, MachineUpdate
 from security import get_current_user
@@ -19,7 +19,7 @@ def create_machine(
 ):
     user_id = user["id"]
 
-    conn = get_connection()
+    conn = connect_database()
     cursor = conn.cursor()
 
     try:
@@ -57,7 +57,7 @@ def get_machines(
 ):
     user_id = user["id"]
 
-    conn = get_connection()
+    conn = connect_database()
     cursor = conn.cursor(dictionary=True)
 
     try:
@@ -65,10 +65,8 @@ def get_machines(
             """
             SELECT *
             FROM machines
-            WHERE user_id = %s
             ORDER BY created_at DESC
             """,
-            (user_id,)
         )
 
         return cursor.fetchall()
@@ -86,17 +84,13 @@ def get_machine(
 ):
     user_id = user["id"]
 
-    conn = get_connection()
+    conn = connect_database()
     cursor = conn.cursor(dictionary=True)
 
     try:
         cursor.execute(
-            """
-            SELECT *
-            FROM machines
-            WHERE id = %s AND user_id = %s
-            """,
-            (machine_id, user_id)
+            "SELECT * FROM machines WHERE id = %s",
+            (machine_id,)
         )
 
         machine = cursor.fetchone()
@@ -123,27 +117,20 @@ def update_machine(
 ):
     user_id = user["id"]
 
-    conn = get_connection()
+    conn = connect_database()
     cursor = conn.cursor()
 
     try:
         cursor.execute(
-            """
-            UPDATE machines
-            SET name = %s
-            WHERE id = %s AND user_id = %s
-            """,
-            (machine.name, machine_id, user_id)
+            "UPDATE machines SET name = %s WHERE id = %s",
+            (machine.name, machine_id)
         )
 
         if cursor.rowcount == 0:
 
             cursor.execute(
-                """
-                SELECT id FROM machines
-                WHERE id = %s AND user_id = %s
-                """,
-                (machine_id, user_id)
+                "SELECT id FROM machines WHERE id = %s",
+                (machine_id,)
             )
 
             if not cursor.fetchone():
@@ -181,16 +168,13 @@ def delete_machine(
 ):
     user_id = user["id"]
 
-    conn = get_connection()
+    conn = connect_database()
     cursor = conn.cursor()
 
     try:
         cursor.execute(
-            """
-            DELETE FROM machines
-            WHERE id = %s AND user_id = %s
-            """,
-            (machine_id, user_id)
+            "DELETE FROM machines WHERE id = %s",
+            (machine_id,)
         )
 
         if cursor.rowcount == 0:
@@ -204,6 +188,13 @@ def delete_machine(
         return {
             "message": "Machine deleted successfully"
         }
+    
+    except mysql.connector.IntegrityError:
+        conn.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="This machine has print logs and cannot be deleted.",
+        )
 
     finally:
         cursor.close()

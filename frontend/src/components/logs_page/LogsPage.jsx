@@ -8,7 +8,7 @@ import {
   faMagnifyingGlass,
 } from "@fortawesome/free-solid-svg-icons";
 import "../main_page/PastPrintsLog.css";
-import { DEFAULT_ESTIMATED_REMAINING_MINUTES } from "./logConstants";
+import { useNow, minutesUntil, formatEta } from "./logUtils";
 import "./LogsPage.css";
 
 function startedAtMs(entry) {
@@ -29,6 +29,7 @@ function formatLocalDate(entry) {
 }
 
 export default function LogsPage({ entries = [], onSelectPrint, loading = false, error = "" }) {
+  const now = useNow(30_000);
   const [query, setQuery] = useState("");
   const [sortDir, setSortDir] = useState("desc");
   const [showLiveSheet, setShowLiveSheet] = useState(true);
@@ -145,7 +146,7 @@ export default function LogsPage({ entries = [], onSelectPrint, loading = false,
 
                       <div className="logs-table__cell logs-table__cell--tag">
                         <span className="logs-table__tag logs-table__tag--running">
-                          Running · ETA ~{entry.estimatedRemainingMinutes ?? DEFAULT_ESTIMATED_REMAINING_MINUTES} min
+                          Running · {formatEta(minutesUntil(entry.estimatedEndAt, now))}
                         </span>
                       </div>
                     </button>

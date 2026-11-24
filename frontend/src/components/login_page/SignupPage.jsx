@@ -4,6 +4,7 @@ import AuthCard from "./AuthCard";
 import Button from "./Button";
 import PasswordField from "./PasswordField";
 import TextField from "./TextField";
+import { signup, login, ApiError } from "../../api";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const NAME_PATTERN = /^[\p{L}\p{M} .'-]+$/u;
@@ -28,20 +29,36 @@ function validate({ name, email, password, confirmPassword }) {
 export default function SignupPage({ onSignup, onGoToLogin }) {
   const [values, setValues] = useState({ name: "", email: "", password: "", confirmPassword: "" });
   const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [serverError, setServerError] = useState("");
 
   const handleChange = (field) => (event) => {
     setValues((current) => ({ ...current, [field]: event.target.value }));
     if (errors[field]) setErrors((current) => ({ ...current, [field]: undefined }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     const found = validate(values);
     setErrors(found);
     if (Object.keys(found).length > 0) return;
 
-    // TODO: replace with a real account-creation request
-    onSignup({ name: values.name.trim(), email: values.email.trim() });
+    setLoading(true);
+    setServerError("");
+    try {
+      const payload = {
+        name: values.name.trim(),
+        email: values.email.trim(),
+        password: values.password,
+      };
+      await signup(payload);
+      await login(payload.email, payload.password); // sign in right after registering
+      onSignup({ name: payload.name, email: payload.email });
+    } catch (err) {
+      setServerError(err instanceof ApiError ? err.message : "Could not create account.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -95,9 +112,11 @@ export default function SignupPage({ onSignup, onGoToLogin }) {
           error={errors.confirmPassword}
         />
 
-        <Button type="submit" fullWidth icon={faUserPlus}>
+        {serverError && <p className="text-field__error" role="alert">{serverError}</p>}
+        <Button type="submit" fullWidth icon={faUserPlus} loading={loading}>
           Create account
         </Button>
+        
       </form>
       <div className="auth-signup">
         <span>Already have an account?</span>

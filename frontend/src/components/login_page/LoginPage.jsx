@@ -4,6 +4,7 @@ import AuthCard from "./AuthCard";
 import TextField from "./TextField";
 import PasswordField from "./PasswordField";
 import Button from "./Button";
+import { login, ApiError } from "../../api";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -20,18 +21,30 @@ export default function LoginPage({ onLogin, onGoToSignUp }) {
   const [values, setValues] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
 
+  const [loading, setLoading] = useState(false);
+  const [serverError, setServerError] = useState("");
+
   const handleChange = (field) => (event) => {
     setValues((current) => ({ ...current, [field]: event.target.value }));
     if (errors[field]) setErrors((current) => ({ ...current, [field]: undefined }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     const found = validate(values);
     setErrors(found);
     if (Object.keys(found).length > 0) return;
 
-    onLogin({ email: values.email.trim() });
+    setLoading(true);
+    setServerError("");
+    try {
+      await login(values.email.trim(), values.password);
+      onLogin({ email: values.email.trim() });
+    } catch (err) {
+      setServerError(err instanceof ApiError ? err.message : "Sign-in failed.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -60,7 +73,8 @@ export default function LoginPage({ onLogin, onGoToSignUp }) {
           error={errors.password}
         />
 
-        <Button type="submit" fullWidth icon={faRightToBracket}>
+        {serverError && <p className="text-field__error" role="alert">{serverError}</p>}
+        <Button type="submit" fullWidth icon={faRightToBracket} loading={loading}>
           Sign in
         </Button>
       </form>

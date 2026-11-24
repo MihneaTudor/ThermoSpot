@@ -4,12 +4,11 @@ from datetime import datetime
 
 class MachineCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
-    user_id: str= Field(min_length=1, max_length=100)
 
 
 class MachineUpdate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
-    user_id: str= Field(min_length=1, max_length=100)
+
 
 class MachineResponse(BaseModel):
     id: int
