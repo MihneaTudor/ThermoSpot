@@ -1,17 +1,16 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPen, faXmark, faFloppyDisk, faDownload, faUpload } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faPen, faXmark, faFloppyDisk, faDownload, faUpload } from "@fortawesome/free-solid-svg-icons";
 import dashboardContent from "../../data/dashboardContent.json";
+import { fetchPrintDetails, savePrintNotes } from "../../api";
+import { DEFAULT_ESTIMATED_REMAINING_MINUTES } from "./logConstants";
 import "./PrintDetails.css";
 
 const EMPTY_NOTES = "No notes saved for this print yet.";
 const LABELS = dashboardContent.labels;
 
-/* ---------- device data (template JSON) ---------- */
-const DEVICE = dashboardContent.devices?.[0] ?? null;
-const BASE_TEMP = parseInt(DEVICE?.boardTemperature, 10) || 70; // "73°C" -> 73
-
 const TAG_CONFIG = {
+  running: { label: "Running", color: "var(--status-online)" },
   completed: { label: "Completed", color: "var(--status-online)" },
   issue: { label: "Issue", color: "var(--status-idle)" },
   error: { label: "Error", color: "var(--status-error)" },
@@ -20,6 +19,8 @@ const TAG_CONFIG = {
 /* ---------- temperature scale ---------- */
 const TEMP_MIN = 50;
 const TEMP_MAX = 150;
+const TIMELINE_STEP_MS = 60_000;
+const POLL_INTERVAL_MS = 5_000;
 const COLD = [59, 183, 255]; // #3bb7ff (complement of the orange)
 const MID = [255, 255, 255]; // white
 const HOT = [255, 131, 59]; // #ff833b
@@ -43,88 +44,194 @@ const TICKS = Array.from({ length: (TEMP_MAX - TEMP_MIN) / 5 + 1 }, (_, i) => {
   };
 });
 
-/* ---------- sensors + time frames ---------- */
+/* ---------- sensors + recorded time frames ---------- */
 const SENSORS = Array.from({ length: 64 }, (_, index) => ({
   id: `sensor-${index + 1}`,
   name: `Sensor ${index + 1}`,
   type: "Temperature",
 }));
 
-const FRAME_COUNT = 61;
-const FRAME_STEP_SECONDS = 30;
-const START_SECONDS = 14 * 3600; // placeholder start time: 14:00:00
-
 const pad = (n) => String(n).padStart(2, "0");
-function formatTime(totalSeconds) {
-  const h = Math.floor(totalSeconds / 3600) % 24;
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+
+function formatDateTime(date) {
+  return {
+    date: new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short", year: "numeric" }).format(date),
+    time: `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`,
+  };
 }
 
-function parseTime(time) {
-  const match = /^(\d{2}):(\d{2}):(\d{2})$/.exec(time);
-  if (!match) return null;
+function buildDemoReadings(progress) {
+  const centerX = 1.5 + 4.5 * progress;
+  const centerY = 5 - 3 * progress;
+  const wave = 0.5 + 0.5 * Math.sin(progress * Math.PI * 2);
 
-  const [, hours, minutes, seconds] = match;
-  const values = [Number(hours), Number(minutes), Number(seconds)];
-  if (values[0] > 23 || values[1] > 59 || values[2] > 59) return null;
-
-  return values[0] * 3600 + values[1] * 60 + values[2];
-}
-
-function formatTimeInput(totalSeconds) {
-  return formatTime(totalSeconds);
-}
-
-function formatTimeDigits(digits) {
-  const hours = digits.slice(0, 2);
-  const minutes = digits.slice(2, 4);
-  const seconds = digits.slice(4, 6);
-
-  if (digits.length <= 2) return digits.length === 2 ? `${hours}:` : hours;
-  if (digits.length <= 4) return digits.length === 4 ? `${hours}:${minutes}:` : `${hours}:${minutes}`;
-  return `${hours}:${minutes}:${seconds}`;
-}
-
-// A hotspot that moves across the grid, heats up, then cools down.
-// The background level comes from the device's board temperature.
-function buildFrames(date) {
-  return Array.from({ length: FRAME_COUNT }, (_, f) => {
-    const progress = f / (FRAME_COUNT - 1);
-    const intensity = 0.3 + 0.7 * Math.sin(Math.PI * progress);
-    const cx = 2 + 3 * progress;
-    const cy = 5 - 3 * progress;
-    const floor = BASE_TEMP - 20;
-
-    const readings = SENSORS.map((_, index) => {
-      const row = Math.floor(index / 8);
-      const col = index % 8;
-      const dist2 = (col - cx) ** 2 + (row - cy) ** 2;
-      const raw = floor + (TEMP_MAX - floor) * intensity * Math.exp(-dist2 / 18);
-      const tempC = Math.round(clamp(raw, TEMP_MIN, TEMP_MAX));
-      return { tempC, temp: `${tempC}°C`, color: tempToColor(tempC) };
-    });
-
-    const time = formatTime(START_SECONDS + f * FRAME_STEP_SECONDS);
-    return { time, stamp: date ? `${date} · ${time}` : time, readings };
+  return SENSORS.map((_, index) => {
+    const row = Math.floor(index / 8);
+    const column = index % 8;
+    const distance = (column - centerX) ** 2 + (row - centerY) ** 2;
+    const tempC = Math.round(clamp(58 + wave * 68 * Math.exp(-distance / 15) + ((index * 7) % 13), TEMP_MIN, TEMP_MAX));
+    return { tempC, temp: `${tempC}°C`, color: tempToColor(tempC) };
   });
 }
 
-export default function PrintDetails({ entry }) {
-  if (!entry) return null;
-  // key resets internal state when a different print is shown
-  return <PrintDetailsContent key={entry.id ?? entry.projectName} entry={entry} />;
+function buildDemoFrames(entry) {
+  const startedAt = new Date(entry.startedAt || `${entry.date.split("-").reverse().join("-")}T14:00:00`);
+  const endedAt = entry.endedAt ? new Date(entry.endedAt) : new Date(startedAt.getTime() + 30 * 60 * 1000);
+  const duration = Math.max(30 * 60 * 1000, endedAt.getTime() - startedAt.getTime());
+  const frameCount = 31;
+
+  return Array.from({ length: frameCount }, (_, frameIndex) => {
+    const progress = frameIndex / (frameCount - 1);
+    const timestamp = new Date(startedAt.getTime() + duration * progress);
+    const formatted = formatDateTime(timestamp);
+
+    return {
+      time: formatted.time,
+      date: formatted.date,
+      stamp: `${formatted.date} · ${formatted.time}`,
+      readings: buildDemoReadings(progress),
+    };
+  });
 }
 
-function PrintDetailsContent({ entry }) {
-  const [notes, setNotes] = useState(entry.notes ?? EMPTY_NOTES);
+export default function PrintDetails({ entry, onBack }) {
+  if (!entry) return null;
+  // key resets internal state when a different print is shown
+  return <PrintDetailsContent key={entry.id ?? entry.projectName} entry={entry} onBack={onBack} />;
+}
+
+function PrintDetailsContent({ entry, onBack }) {
+  const [detail, setDetail] = useState(entry);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [notes, setNotes] = useState(entry.notes ?? "");
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [draftNotes, setDraftNotes] = useState(notes);
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [notesError, setNotesError] = useState("");
+  const [liveNow, setLiveNow] = useState(() => Date.parse(entry.startedAt ?? "") || 0);
 
-  const frames = useMemo(() => buildFrames(entry.date), [entry.date]);
-  const [frameIndex, setFrameIndex] = useState(0);
-  const [timeInput, setTimeInput] = useState(formatTimeInput(START_SECONDS));
+  useEffect(() => {
+    if (detail.status !== "running") return undefined;
+    const initialRefresh = window.setTimeout(() => setLiveNow(Date.now()), 0);
+    const timer = window.setInterval(() => setLiveNow(Date.now()), 15_000);
+    return () => {
+      window.clearTimeout(initialRefresh);
+      window.clearInterval(timer);
+    };
+  }, [detail.status]);
+
+  // initial load
+  useEffect(() => {
+    let cancelled = false;
+    fetchPrintDetails(entry.id)
+      .then((result) => {
+        if (cancelled) return;
+        setDetail(result);
+        setNotes(result.notes ?? "");
+        setDraftNotes(result.notes ?? "");
+      })
+      .catch((error) => {
+        if (!cancelled) setLoadError(error.message);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [entry.id]);
+
+  // live refresh: only while the print is running
+  useEffect(() => {
+    if (detail.status !== "running" || isLoading) return undefined;
+
+    let cancelled = false;
+    const timer = window.setInterval(() => {
+      fetchPrintDetails(entry.id)
+        .then((result) => {
+          if (cancelled) return;
+          // update data, but do NOT touch notes: the user may be editing them
+          setDetail(result);
+          setLoadError("");
+        })
+        .catch((error) => {
+          // keep showing the last good data; just surface the problem
+          if (!cancelled) setLoadError(error.message);
+        });
+    }, POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [detail.status, entry.id, isLoading]);
+
+  const isRunning = detail.status === "running";
+  const estimatedRemainingMinutes = Math.max(
+    1,
+    Number(detail.estimatedRemainingMinutes ?? DEFAULT_ESTIMATED_REMAINING_MINUTES)
+  );
+  const etaMinutes = estimatedRemainingMinutes;
+  const hasRecordedReadings = (detail.readings ?? []).length > 0;
+  const timeline = useMemo(() => {
+    if (isRunning && !isLoading && !loadError) {
+      const startedAt = new Date(detail.startedAt);
+      const elapsedMs = Math.max(0, liveNow - startedAt.getTime());
+      const currentIndex = Math.ceil(elapsedMs / TIMELINE_STEP_MS);
+      const plannedIndex = currentIndex + Math.ceil(
+        (estimatedRemainingMinutes * 60_000) / TIMELINE_STEP_MS
+      );
+      const actualReadings = (detail.readings ?? []).map((reading) => ({
+        timestamp: new Date(reading.recordedAt).getTime(),
+        readings: reading.values.map((value) => {
+          const tempC = Math.round(Number(value));
+          return { tempC, temp: `${tempC}°C`, color: tempToColor(tempC) };
+        }),
+      }));
+
+      const frames = Array.from({ length: currentIndex + 1 }, (_, index) => {
+        const timestamp = new Date(Math.min(startedAt.getTime() + index * TIMELINE_STEP_MS, liveNow));
+        const formatted = formatDateTime(timestamp);
+        const latestReading = actualReadings.findLast((reading) => reading.timestamp <= timestamp.getTime());
+        const readings = latestReading?.readings ?? actualReadings[0]?.readings ?? buildDemoReadings(
+          currentIndex > 0 ? index / currentIndex : 0
+        );
+
+        return {
+          time: formatted.time,
+          date: formatted.date,
+          stamp: `${formatted.date} · ${formatted.time}`,
+          readings,
+        };
+      });
+
+      return { frames, currentIndex, sliderMax: plannedIndex };
+    }
+
+    if (!hasRecordedReadings) {
+      const frames = !isLoading && !loadError ? buildDemoFrames(detail) : [];
+      return { frames, currentIndex: frames.length - 1, sliderMax: frames.length - 1 };
+    }
+
+    const frames = (detail.readings ?? []).map((reading) => {
+      const recordedAt = new Date(reading.recordedAt);
+      const formatted = formatDateTime(recordedAt);
+      return {
+        time: formatted.time,
+        date: formatted.date,
+        stamp: `${formatted.date} · ${formatted.time}`,
+        readings: reading.values.map((value) => {
+          const tempC = Math.round(Number(value));
+          return { tempC, temp: `${tempC}°C`, color: tempToColor(tempC) };
+        }),
+      };
+    });
+    return { frames, currentIndex: frames.length - 1, sliderMax: frames.length - 1 };
+  }, [detail, estimatedRemainingMinutes, hasRecordedReadings, isLoading, isRunning, liveNow, loadError]);
+  const [selectedFrameIndex, setSelectedFrameIndex] = useState(null);
+  const frameIndex = selectedFrameIndex ?? (isRunning ? timeline.currentIndex : 0);
   const [selectedIndex, setSelectedIndex] = useState(null);
 
   const gridWrapRef = useRef(null);
@@ -132,65 +239,32 @@ function PrintDetailsContent({ entry }) {
   const pendingTimeCaret = useRef(null);
   const [tooltip, setTooltip] = useState(null); // { index, left, top, below }
 
-  const frame = frames[frameIndex];
-
-  useLayoutEffect(() => {
-    if (pendingTimeCaret.current === null) return;
-    timeInputRef.current?.setSelectionRange(pendingTimeCaret.current, pendingTimeCaret.current);
-    pendingTimeCaret.current = null;
-  }, [timeInput]);
-
-  const updateFrameFromTime = (time) => {
-    const seconds = parseTime(time);
-    if (seconds === null) return null;
-
-    return clamp(
-      Math.round((seconds - START_SECONDS) / FRAME_STEP_SECONDS),
-      0,
-      frames.length - 1
-    );
-  };
-
-  const handleTimeInputChange = (event) => {
-    const rawValue = event.target.value;
-    const caret = event.target.selectionStart ?? rawValue.length;
-    const digitsBeforeCaret = rawValue.slice(0, caret).replace(/\D/g, "").length;
-    const digits = rawValue.replace(/\D/g, "").slice(0, 6);
-    const nextTime = formatTimeDigits(digits);
-    const caretDigitCount = Math.min(digitsBeforeCaret, digits.length);
-    pendingTimeCaret.current =
-      caretDigitCount + (caretDigitCount >= 2 ? 1 : 0) + (caretDigitCount >= 4 ? 1 : 0);
-    setTimeInput(nextTime);
-
-    const nextFrameIndex = updateFrameFromTime(nextTime);
-    if (nextFrameIndex !== null) setFrameIndex(nextFrameIndex);
-  };
-
-  const handleTimeInputBlur = () => {
-    const nextFrameIndex = updateFrameFromTime(timeInput);
-    if (nextFrameIndex === null) {
-      setTimeInput(formatTimeInput(START_SECONDS + frameIndex * FRAME_STEP_SECONDS));
-      return;
-    }
-
-    setFrameIndex(nextFrameIndex);
-    setTimeInput(formatTimeInput(START_SECONDS + nextFrameIndex * FRAME_STEP_SECONDS));
-  };
+  const frame = timeline.frames[Math.min(frameIndex, timeline.frames.length - 1)] ?? null;
 
   const selectedSensor = selectedIndex !== null ? SENSORS[selectedIndex] : null;
-  const selectedReading = selectedIndex !== null ? frame.readings[selectedIndex] : null;
+  const selectedReading = selectedIndex !== null && frame ? frame.readings[selectedIndex] : null;
 
   const tipSensor = tooltip ? SENSORS[tooltip.index] : null;
-  const tipReading = tooltip ? frame.readings[tooltip.index] : null;
+  const tipReading = tooltip && frame ? frame.readings[tooltip.index] : null;
 
-  const tag = TAG_CONFIG[entry.tag] ?? {
-    label: entry.tag ?? "Unknown",
+    const tag = TAG_CONFIG[detail.tag] ?? {
+    label: detail.tag ?? "Unknown",
     color: "var(--status-idle)",
   };
 
-  const handleSaveNotes = () => {
-    setNotes(draftNotes.trim() || EMPTY_NOTES);
-    setIsEditingNotes(false);
+  const handleSaveNotes = async () => {
+    const nextNotes = draftNotes.trim();
+    setIsSavingNotes(true);
+    setNotesError("");
+    try {
+      await savePrintNotes(entry.id, nextNotes);
+      setNotes(nextNotes);
+      setIsEditingNotes(false);
+    } catch (error) {
+      setNotesError(error.message);
+    } finally {
+      setIsSavingNotes(false);
+    }
   };
 
   const draftNotesLength = draftNotes.length;
@@ -217,19 +291,25 @@ function PrintDetailsContent({ entry }) {
 
   return (
     <div className="print-details">
-      <div className="logs-page__header">
+      <div className="print-details__page-header">
         <p className="device-card__label">Print details</p>
+        {onBack && (
+          <button type="button" className="print-details__back-button" onClick={onBack}>
+            <FontAwesomeIcon icon={faArrowLeft} />
+            <span>Back to logs</span>
+          </button>
+        )}
       </div>
 
       <div className="print-details__card">
         <div className="print-details__header-card">
           <div className="print-details__title-block">
-            <h2 className="print-details__name">{entry.projectName}</h2>
+            <h2 className="print-details__name">{detail.projectName}</h2>
             <div className="print-details__meta">
               <span className="print-details__chip">{entry.date}</span>
               <span className="print-details__meta-divider" aria-hidden="true" />
               <span className="print-details__chip print-details__device-chip">
-                {entry.device || "Unknown device"}
+                {detail.device || "Unknown device"}
               </span>
               <span className="print-details__meta-divider" aria-hidden="true" />
               <span
@@ -237,6 +317,11 @@ function PrintDetailsContent({ entry }) {
                 style={{ "--tag-color": tag.color }}>
                 {tag.label}
               </span>
+              {isRunning && (
+                <span className="print-details__eta" aria-live="polite">
+                  ETA ~{etaMinutes} min
+                </span>
+              )}
             </div>
           </div>
 
@@ -256,15 +341,15 @@ function PrintDetailsContent({ entry }) {
           <div className="print-details__notes-header">
             <span>Notes</span>
             <div className="print-details__notes-actions">
-              {isEditingNotes ? (
+                {isEditingNotes ? (
                 <>
                   <button type="button" className="print-details__notes-button" onClick={handleCancelNotes}>
                     <FontAwesomeIcon icon={faXmark} />
                     {LABELS.cancel}
                   </button>
-                  <button type="button" className="print-details__notes-save" onClick={handleSaveNotes}>
+                  <button type="button" className="print-details__notes-save" onClick={handleSaveNotes} disabled={isSavingNotes}>
                     <FontAwesomeIcon icon={faFloppyDisk} />
-                    {LABELS.saveChanges}
+                    {isSavingNotes ? "Saving..." : LABELS.saveChanges}
                   </button>
                 </>
               ) : (
@@ -296,11 +381,20 @@ function PrintDetailsContent({ entry }) {
               </div>
             </>
           ) : (
-            <p className="print-details__notes-text">{notes}</p>
+            <p className="print-details__notes-text">{notes || EMPTY_NOTES}</p>
           )}
+          {notesError && <p role="alert">{notesError}</p>}
         </div>
 
-        <div className="print-details__content">
+        {isLoading && <p role="status">Loading print readings...</p>}
+        {loadError && <p role="alert">{loadError}</p>}
+        {!isLoading && !loadError && !hasRecordedReadings && (
+          <p className="print-details__demo-notice" role="status">
+            Showing sample sensor data because this print has no recorded readings.
+          </p>
+        )}
+
+        {frame && <div className="print-details__content">
           <div className="print-details__panel print-details__panel--grid">
             <div className="print-details__grid-block">
               <div className="print-details__grid-area">
@@ -367,21 +461,26 @@ function PrintDetailsContent({ entry }) {
               {/* time slider */}
               <div className="print-details__timeline">
                 <div className="print-details__timestamp">
-                  <span className="print-details__timestamp-date">{entry.date}</span>
+                  <span className="print-details__timestamp-date">{frame.date}</span>
                   <span className="print-details__timestamp-time">{frame.time}</span>
                 </div>
+                {isRunning && selectedFrameIndex !== null && frameIndex < timeline.currentIndex && (
+                  <button
+                    type="button"
+                    className="print-details__now-button"
+                    onClick={() => setSelectedFrameIndex(null)}
+                  >
+                    Now
+                  </button>
+                )}
                 <input
                   className="print-details__slider"
                   type="range"
                   min={0}
-                  max={frames.length - 1}
+                  max={timeline.sliderMax}
                   step={1}
                   value={frameIndex}
-                  onChange={(event) => {
-                    const nextFrameIndex = Number(event.target.value);
-                    setFrameIndex(nextFrameIndex);
-                    setTimeInput(formatTimeInput(START_SECONDS + nextFrameIndex * FRAME_STEP_SECONDS));
-                  }}
+                  onChange={(event) => setSelectedFrameIndex(Math.min(Number(event.target.value), timeline.currentIndex))}
                   aria-label="Time"
                   aria-valuetext={frame.stamp}
                 />
@@ -423,7 +522,7 @@ function PrintDetailsContent({ entry }) {
               )}
             </div>
           </div>
-        </div>
+        </div>}
       </div>
     </div>
   );

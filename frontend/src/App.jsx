@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dashboardContent from "./data/dashboardContent.json";
+import { fetchPrints } from "./api";
 import Header from "./components/Header";
 import WelcomeHeader from "./components/main_page/WelcomeHeader";
 import DeviceStatus, { DeviceDetailsPage } from "./components/main_page/DeviceStatus";
@@ -13,31 +14,6 @@ import SignupPage from "./components/login_page/SignupPage";
 const initialDevices = dashboardContent.devices;
 const project = dashboardContent.project;
 
-const linkPrintsToDevices = (logEntries, currentDevices) => {
-  const deviceIds = new Set(currentDevices.map((device) => device.id));
-
-  return logEntries
-    .map((entry) => {
-      const matchedDevice = currentDevices.find(
-        (device) =>
-          device.id === entry.deviceId ||
-          device.name === entry.device ||
-          device.id === entry.device ||
-          device.name === entry.deviceId
-      );
-
-      const resolvedDeviceId = matchedDevice?.id ?? (deviceIds.has(entry.deviceId) ? entry.deviceId : null);
-
-      return {
-        ...entry,
-        deviceId: resolvedDeviceId,
-        device: matchedDevice?.name ?? entry.device ?? "Unknown device",
-      };
-    })
-    .filter((entry) => Boolean(entry.deviceId) && deviceIds.has(entry.deviceId));
-};
-
-
 function App() {
   const [user, setUser] = useState(null);
   const [authMode, setAuthMode] = useState("login");
@@ -46,8 +22,30 @@ function App() {
   const [isDevicePageOpen, setIsDevicePageOpen] = useState(false);
   const [isLogsOpen, setIsLogsOpen] = useState(false);
   const [selectedPrintId, setSelectedPrintId] = useState(null);
+  const [prints, setPrints] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(true);
+  const [logsError, setLogsError] = useState("");
   const selectedDevice = devices.find((device) => device.id === selectedDeviceId) ?? devices[0] ?? null;
-  const prints = useMemo(() => linkPrintsToDevices(dashboardContent.printsLog, devices), [devices]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchPrints()
+      .then((entries) => {
+        if (!cancelled) setPrints(entries);
+      })
+      .catch((error) => {
+        if (!cancelled) setLogsError(error.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLogsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const recentPrints = useMemo(() => {
     const sorted = [...prints].sort((a, b) => {
       const dateA = a.date ? a.date.split("-").reverse().join("-") : "";
@@ -174,7 +172,7 @@ function App() {
       return (
         <div className="dashboard-page">
           <Header onOpenDeviceDetails={handleOpenDevicePage} onGoDashboard={handleGoDashboard} onOpenLogs={handleOpenLogsPage} />
-          <PrintDetails entry={selectedEntry} />
+          <PrintDetails entry={selectedEntry} onBack={() => setSelectedPrintId(null)} />
         </div>
       );
     }
@@ -182,7 +180,12 @@ function App() {
     return (
       <div className="dashboard-page">
         <Header onOpenDeviceDetails={handleOpenDevicePage} onGoDashboard={handleGoDashboard} onOpenLogs={handleOpenLogsPage} />
-        <LogsPage entries={prints} project={project} onSelectPrint={(id) => setSelectedPrintId(id)} />
+        <LogsPage
+          entries={prints}
+          onSelectPrint={(id) => setSelectedPrintId(id)}
+          loading={logsLoading}
+          error={logsError}
+        />
       </div>
     );
   }

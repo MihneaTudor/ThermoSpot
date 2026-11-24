@@ -2,4 +2,12 @@
 .vscode/launch.json
 .vscode/c_cpp_properties.json
 .env
+.env.*
+!.env.example
 node_modules/
+dist/
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+*.log

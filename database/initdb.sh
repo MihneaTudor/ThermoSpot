@@ -1,4 +1,4 @@
-set -euo pipefail
+cd set -euo pipefail
 
 if ! database_exists=$(mysql --batch --skip-column-names --execute \
   "SELECT EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'ThermoDB');"); then
