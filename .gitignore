@@ -4,6 +4,7 @@
 .env
 .env.*
 !.env.example
+todo.txt
 node_modules/
 dist/
 __pycache__/
