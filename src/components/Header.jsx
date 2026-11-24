@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import logo from '../assets/logo.png'
 import dashboardContent from '../data/dashboardContent.json'
 import './Header.css'
 
@@ -9,7 +10,7 @@ function Header({ onOpenDeviceDetails, onGoDashboard, onOpenLogs }) {
     return (
         <header className='header'>
             <button type='button' className='header-logo' onClick={onGoDashboard} aria-label='Go to dashboard'>
-                <img src='/src/assets/logo.png' alt="ThermSpot logo" />
+                <img src={logo} alt="ThermSpot logo" />
             </button>
 
             <nav className='header-nav'>

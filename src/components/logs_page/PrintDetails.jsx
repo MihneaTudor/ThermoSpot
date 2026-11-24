@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPen, faXmark, faFloppyDisk, faDownload, faUpload } from "@fortawesome/free-solid-svg-icons";
 import dashboardContent from "../../data/dashboardContent.json";
@@ -62,6 +62,31 @@ function formatTime(totalSeconds) {
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
+function parseTime(time) {
+  const match = /^(\d{2}):(\d{2}):(\d{2})$/.exec(time);
+  if (!match) return null;
+
+  const [, hours, minutes, seconds] = match;
+  const values = [Number(hours), Number(minutes), Number(seconds)];
+  if (values[0] > 23 || values[1] > 59 || values[2] > 59) return null;
+
+  return values[0] * 3600 + values[1] * 60 + values[2];
+}
+
+function formatTimeInput(totalSeconds) {
+  return formatTime(totalSeconds);
+}
+
+function formatTimeDigits(digits) {
+  const hours = digits.slice(0, 2);
+  const minutes = digits.slice(2, 4);
+  const seconds = digits.slice(4, 6);
+
+  if (digits.length <= 2) return digits.length === 2 ? `${hours}:` : hours;
+  if (digits.length <= 4) return digits.length === 4 ? `${hours}:${minutes}:` : `${hours}:${minutes}`;
+  return `${hours}:${minutes}:${seconds}`;
+}
+
 // A hotspot that moves across the grid, heats up, then cools down.
 // The background level comes from the device's board temperature.
 function buildFrames(date) {
@@ -99,12 +124,58 @@ function PrintDetailsContent({ entry }) {
 
   const frames = useMemo(() => buildFrames(entry.date), [entry.date]);
   const [frameIndex, setFrameIndex] = useState(0);
+  const [timeInput, setTimeInput] = useState(formatTimeInput(START_SECONDS));
   const [selectedIndex, setSelectedIndex] = useState(null);
 
   const gridWrapRef = useRef(null);
+  const timeInputRef = useRef(null);
+  const pendingTimeCaret = useRef(null);
   const [tooltip, setTooltip] = useState(null); // { index, left, top, below }
 
   const frame = frames[frameIndex];
+
+  useLayoutEffect(() => {
+    if (pendingTimeCaret.current === null) return;
+    timeInputRef.current?.setSelectionRange(pendingTimeCaret.current, pendingTimeCaret.current);
+    pendingTimeCaret.current = null;
+  }, [timeInput]);
+
+  const updateFrameFromTime = (time) => {
+    const seconds = parseTime(time);
+    if (seconds === null) return null;
+
+    return clamp(
+      Math.round((seconds - START_SECONDS) / FRAME_STEP_SECONDS),
+      0,
+      frames.length - 1
+    );
+  };
+
+  const handleTimeInputChange = (event) => {
+    const rawValue = event.target.value;
+    const caret = event.target.selectionStart ?? rawValue.length;
+    const digitsBeforeCaret = rawValue.slice(0, caret).replace(/\D/g, "").length;
+    const digits = rawValue.replace(/\D/g, "").slice(0, 6);
+    const nextTime = formatTimeDigits(digits);
+    const caretDigitCount = Math.min(digitsBeforeCaret, digits.length);
+    pendingTimeCaret.current =
+      caretDigitCount + (caretDigitCount >= 2 ? 1 : 0) + (caretDigitCount >= 4 ? 1 : 0);
+    setTimeInput(nextTime);
+
+    const nextFrameIndex = updateFrameFromTime(nextTime);
+    if (nextFrameIndex !== null) setFrameIndex(nextFrameIndex);
+  };
+
+  const handleTimeInputBlur = () => {
+    const nextFrameIndex = updateFrameFromTime(timeInput);
+    if (nextFrameIndex === null) {
+      setTimeInput(formatTimeInput(START_SECONDS + frameIndex * FRAME_STEP_SECONDS));
+      return;
+    }
+
+    setFrameIndex(nextFrameIndex);
+    setTimeInput(formatTimeInput(START_SECONDS + nextFrameIndex * FRAME_STEP_SECONDS));
+  };
 
   const selectedSensor = selectedIndex !== null ? SENSORS[selectedIndex] : null;
   const selectedReading = selectedIndex !== null ? frame.readings[selectedIndex] : null;
@@ -306,10 +377,28 @@ function PrintDetailsContent({ entry }) {
                   max={frames.length - 1}
                   step={1}
                   value={frameIndex}
-                  onChange={(event) => setFrameIndex(Number(event.target.value))}
+                  onChange={(event) => {
+                    const nextFrameIndex = Number(event.target.value);
+                    setFrameIndex(nextFrameIndex);
+                    setTimeInput(formatTimeInput(START_SECONDS + nextFrameIndex * FRAME_STEP_SECONDS));
+                  }}
                   aria-label="Time"
                   aria-valuetext={frame.stamp}
                 />
+                <label className="print-details__time-input">
+                  <span className="print-details__timestamp-date">Jump to time</span>
+                  <input
+                    type="text"
+                    ref={timeInputRef}
+                    maxLength={8}
+                    inputMode="numeric"
+                    placeholder="00:00:00"
+                    value={timeInput}
+                    onChange={handleTimeInputChange}
+                    onBlur={handleTimeInputBlur}
+                    aria-label="Enter a time as six digits, hours minutes seconds"
+                  />
+                </label>
               </div>
             </div>
           </div>
